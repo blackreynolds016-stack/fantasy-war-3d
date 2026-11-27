@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#14110f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>FANTASY WAR 3D</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head>
+<body>
+  <div id="game"></div>
+
+  <div id="loading" class="screen show"><div class="logo">FANTASY <i>WAR</i> 3D</div><div class="bar"><i id="load-bar"></i></div><p id="load-txt">Cargando ejércitos…</p></div>
+
+  <section id="menu" class="screen">
+    <div class="logo">FANTASY <i>WAR</i> 3D</div>
+    <p class="tag">Dos ejércitos. Una sola base en pie.</p>
+    <button class="btn big gold" id="m-play">JUGAR</button>
+    <button class="btn" id="m-units">PERSONAJES</button>
+    <button class="btn" id="m-settings">AJUSTES</button>
+  </section>
+
+  <section id="setup" class="screen">
+    <h2>PREPARA LA BATALLA</h2>
+    <div class="grid">
+      <div class="group"><h3>Dificultad</h3><div class="opts" id="s-diff"></div></div>
+      <div class="group"><h3>Ejército</h3><div class="opts" id="s-army"></div></div>
+      <div class="group"><h3>Mapa</h3><div class="opts" id="s-map"></div></div>
+    </div>
+    <div class="row"><button class="btn" id="s-back">VOLVER</button><button class="btn big gold" id="s-go">¡A COMBATIR!</button></div>
+  </section>
+
+  <section id="units" class="screen scroll">
+    <h2>PERSONAJES</h2><div class="cards" id="u-cards"></div>
+    <div class="row"><button class="btn" id="u-back">VOLVER</button></div>
+  </section>
+
+  <section id="settings" class="screen">
+    <h2>AJUSTES</h2>
+    <div class="form">
+      <label>Calidad gráfica <select id="o-quality"><option value="low">Baja</option><option value="mid">Media</option><option value="high">Alta</option></select></label>
+      <label>Sonido <select id="o-sound"><option value="1">Activado</option><option value="0">Silencio</option></select></label>
+      <label>Volumen <input type="range" id="o-vol" min="0" max="100" step="5"></label>
+      <label>Mostrar FPS <select id="o-fps"><option value="0">No</option><option value="1">Sí</option></select></label>
+    </div>
+    <div class="row"><button class="btn gold" id="o-back">LISTO</button></div>
+  </section>
+
+  <div id="hud" class="hidden">
+    <div id="top">
+      <div class="res"><b id="h-gold">0</b><small id="h-inc">+8/s</small></div>
+      <div class="res"><b id="h-pop">0/30</b><small>POBLACIÓN</small></div>
+      <div class="bases">
+        <div class="hb"><span id="h-n0">TU BASE</span><i><u id="h-b0"></u></i></div>
+        <div class="wave"><b id="h-wave">OLEADA 1</b><small id="h-time">00:00</small></div>
+        <div class="hb r"><span id="h-n1">ENEMIGO</span><i><u id="h-b1"></u></i></div>
+      </div>
+      <div class="ctrls"><button id="h-speed" class="mini">x1</button><button id="h-center" class="mini" title="Centrar">◎</button><button id="h-up" class="mini">⚒</button><button id="h-pause" class="mini">❚❚</button></div>
+    </div>
+    <div id="upgrades" class="hidden"></div>
+    <div id="toast"></div>
+    <div id="fps" class="hidden">-- FPS</div>
+    <div id="bar"></div>
+  </div>
+
+  <section id="pause" class="screen"><h2>PAUSA</h2>
+    <button class="btn big gold" id="p-resume">CONTINUAR</button><button class="btn" id="p-restart">REINICIAR</button><button class="btn" id="p-settings">AJUSTES</button><button class="btn" id="p-menu">SALIR AL MENÚ</button></section>
+
+  <section id="end" class="screen"><h1 id="e-title">VICTORIA</h1><p id="e-sub"></p><div class="stats" id="e-stats"></div>
+    <div class="row"><button class="btn big gold" id="e-again">OTRA BATALLA</button><button class="btn" id="e-menu">MENÚ</button></div></section>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
