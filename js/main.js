@@ -50,6 +50,7 @@ function init() {
     onCenter: () => { cam.auto = true; cam.all = false; cam.distT = 17; },
     onAll: () => { cam.all = !cam.all; cam.distT = cam.all ? 64 : 17; cam.auto = !cam.all; $('h-all').classList.toggle('on', cam.all); },
     onSettings: applySettings,
+    onMini: (x) => { cam.auto = false; cam.all = false; const l = game ? game.map.length / 2 - 10 : 50; cam.x = Math.max(-l, Math.min(l, x)); },
   });
   applySettings(ui.set);
   requestAnimationFrame(loop);
@@ -153,7 +154,7 @@ function loop(now) {
       for (const ev of game.drain()) handle(ev);
       for (const v of views.values()) v.update(raw * (game.speed), game.over, cam.x, halfView());
       fx.syncProjectiles(game.projectiles); fx.update(raw, camera); fx.bars(game.units, cam.x, halfView());
-      W.update(raw, cam.x); castleAnim(raw); ui.tick(raw); perfTick(raw);
+      W.update(raw, cam.x); castleAnim(raw); ui.tick(raw); ui.drawMini(cam.x, halfView()); perfTick(raw);
     }
     placeCamera(raw);
   } else { cam.x += raw * 0.6; camera.position.set(cam.x % 20, 6, 26); camera.lookAt(cam.x % 20, 2, 0); }

@@ -64,7 +64,7 @@ export class Game {
     const hpMul = team === 1 ? this.aiHpMul : 1;
     const u = { uid: nextUid++, id, def: d, team, dir, hp: d.hp * hpMul, maxHp: d.hp * hpMul, x: base.x + dir * (BASE_HALF + 1.2 + this.rand() * 1.5), z: lane, lane, r: 0.42 * d.scale,
                 state: 'walk', target: null, cd: 0.3 + this.rand() * 0.4, windup: 0, winding: false, animLeft: 0, retarget: this.rand() * 0.4, deadT: 0, hits: 0, moving: false, hurtT: 0 };
-    this.units.push(u); this.stats[team].spawned++; this.emit({ t: 'spawn', u }); return u;
+    this.units.push(u); this.eco[team].unitInc += d.inc || 0; this.stats[team].spawned++; this.emit({ t: 'spawn', u }); return u;
   }
 
   // ------------------------------------------------------------------ bucle principal
@@ -179,7 +179,7 @@ export class Game {
     if (b.hp <= 0) { b.hp = 0; b.dead = true; this.emit({ t: b.isTower ? 'towerDown' : 'baseDown', team: b.team }); }
   }
   kill(t, killerTeam) {
-    t.state = 'dead'; t.deadT = 0; t.hp = 0; t.moving = false; this.eco[t.team].popUsed -= t.def.pop; this.stats[t.team].lost++; this.stats[killerTeam].kills++;
+    t.state = 'dead'; t.deadT = 0; t.hp = 0; t.moving = false; this.eco[t.team].popUsed -= t.def.pop; this.eco[t.team].unitInc -= t.def.inc || 0; this.stats[t.team].lost++; this.stats[killerTeam].kills++;
     const bounty = Math.round(t.def.cost * 0.3); this.eco[killerTeam].add(bounty);
     this.emit({ t: 'death', u: t }); if (killerTeam === 0) this.emit({ t: 'coin', team: 0, amount: bounty, x: t.x, z: t.z });
   }

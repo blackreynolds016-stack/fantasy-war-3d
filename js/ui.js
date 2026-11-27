@@ -1,16 +1,17 @@
 /* ui.js — menús, HUD y botones de reclutamiento. No toca Three.js: solo DOM y el estado de `game`. */
-import { UNITS, ORDER } from './units.js';
+import { UNITS, ORDER, DAMAGE_MULT, counters } from './units.js';
 import { UPGRADES } from './economy.js';
 import { MAPS, MAP_ORDER, ARMIES } from './maps.js';
 
 const $ = (id) => document.getElementById(id);
 const DIFFS = [['facil', 'Fácil', 'Enemigo lento y torpe'], ['normal', 'Normal', 'Pelea pareja'], ['dificil', 'Difícil', 'Enemigo rápido y listo']];
+const ARM = { ligera: 'LIG', pesada: 'PES', grande: 'GRA' }, DT = { filo: 'filo', perforante: 'perforante', contundente: 'contundente', magico: 'mágico' };
 const REASON = { monedas: 'Faltan monedas', poblacion: 'Población llena', cola: 'Cola llena (máx. 4)', bloqueada: 'Bloqueada', fin: '' };
 const fmtTime = (s) => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 
 export class UI {
   constructor(h) {
-    this.h = h; this.game = null; this.acc = 0; this.btns = {}; this.ups = {}; this.toastT = 0;
+    this.h = h; this.game = null; this.acc = 0; this.btns = {}; this.ups = {}; this.toastT = 0; this.miniT = 0; this.longFlag = false;
     let sel = {}; try { sel = JSON.parse(localStorage.getItem('fw-sel') || '{}'); } catch (e) {}
     this.sel = { diff: 'normal', army: 0, map: 'valle', ...sel };
     let set = {}; try { set = JSON.parse(localStorage.getItem('fw-set') || '{}'); } catch (e) {}
@@ -48,8 +49,13 @@ export class UI {
     const bar = $('bar'); bar.innerHTML = '';
     ORDER.forEach((id, i) => {
       const d = UNITS[id], b = document.createElement('button'); b.className = 'rbtn';
-      b.innerHTML = `<span class="k">${'1234567890-='[i]}</span><span class="q" style="display:none"></span><div class="ic" style="background:${d.color}">${d.name[0]}</div><span class="nm">${d.name}</span><span class="cs">${d.cost}</span><span class="pg"></span>`;
-      b.onclick = () => this.h.onRecruit(id);
+      b.innerHTML = `<span class="k">${'1234567890-='[i]}</span><span class="q" style="display:none"></span><div class="ic" style="background:${d.color}">${d.name[0]}</div><span class="nm">${d.name}</span><span class="cs">${d.cost}</span><span class="tp">${ARM[d.armor]}</span><span class="pg"></span>`;
+      let tm = 0;
+      b.onpointerdown = (e) => { this.longFlag = false; clearTimeout(tm); tm = setTimeout(() => { this.longFlag = true; this.info(id); }, e.pointerType === 'mouse' ? 99999 : 380); };
+      const end = () => { clearTimeout(tm); this.info(null); };
+      b.onpointerup = end; b.onpointerleave = end; b.onpointercancel = end;
+      b.onmouseenter = () => this.info(id); b.onmouseleave = () => this.info(null);
+      b.onclick = () => { if (this.longFlag) { this.longFlag = false; return; } this.h.onRecruit(id); };
       bar.appendChild(b); this.btns[id] = { b, q: b.querySelector('.q'), cs: b.querySelector('.cs') };
     });
   }
@@ -71,6 +77,8 @@ export class UI {
     go('e-again', () => this.h.onRestart()); go('e-menu', () => this.h.onMenu());
     go('h-all', () => this.h.onAll()); go('h-speed', () => this.h.onSpeed()); go('h-center', () => this.h.onCenter());
     go('h-up', () => { $('upgrades').classList.toggle('hidden'); $('h-up').classList.toggle('on'); });
+    const mc = $('mini'); let drag = false; const mv = (e) => { const r = mc.getBoundingClientRect(), f = (e.clientX - r.left) / r.width; if (this.game) this.h.onMini(((f * mc.width - 6) / (mc.width - 12) - 0.5) * this.game.map.length); };
+    mc.onpointerdown = (e) => { drag = true; mc.setPointerCapture(e.pointerId); mv(e); }; mc.onpointermove = (e) => { if (drag) mv(e); }; mc.onpointerup = mc.onpointercancel = () => { drag = false; };
     const q = $('o-quality'), s = $('o-sound'), v = $('o-vol'), f = $('o-fps');
     q.value = this.set.quality === 'auto' ? 'mid' : this.set.quality; s.value = this.set.sound; v.value = this.set.vol; f.value = this.set.fps;
     const ch = () => { this.set = { quality: q.value, sound: +s.value, vol: +v.value, fps: +f.value }; this.save(); this.h.onSettings(this.set); };
@@ -79,6 +87,29 @@ export class UI {
       if (!this.game || e.repeat) return; const i = '1234567890-='.indexOf(e.key);
       if (i >= 0) this.h.onRecruit(ORDER[i]); else if (e.key === 'Escape' || e.key === 'p') this.h.onPause();
     });
+  }
+  /** Ficha de una tropa: estadísticas, a qué armaduras daña más, quién la vence y a quién vence. */
+  info(id) {
+    const box = $('info'); if (!id) { box.classList.add('hidden'); return; }
+    const d = UNITS[id], c = counters(id), M = DAMAGE_MULT[d.dtype];
+    const good = Object.keys(M).filter(k => M[k] >= 1.2).map(k => k + 's'), bad = Object.keys(M).filter(k => M[k] <= 0.8).map(k => k + 's');
+    const nm = (l) => l.map(u => u.name).join(', ') || '—';
+    box.innerHTML = `<b class="t">${d.name} <small>${d.role}</small></b><div class="st"><span>Vida ${d.hp}</span><span>Daño ${d.dmg}</span><span>Def ${d.def}</span><span>Alcance ${d.range}</span><span>Armadura ${d.armor}</span><span>Ingresos +${d.inc}/s</span></div>`
+      + (d.heal ? `<div class="g">Cura ${d.heal} de vida al aliado más herido.</div>` : `<div>Daño ${DT[d.dtype]}: <span class="g">fuerte contra ${good.join(', ') || '—'}</span>${bad.length ? ', <span class="r">débil contra ' + bad.join(', ') + '</span>' : ''}</div><div><span class="r">La vencen:</span> ${nm(c.beatenBy)}</div><div><span class="g">Vence a:</span> ${nm(c.beats)}</div>`);
+    box.classList.remove('hidden');
+  }
+  /** Minimapa: muestra tu ejército y solo los enemigos que tus tropas o tu base ven de cerca (no regala dónde salen). Arrastrar mueve la cámara. */
+  drawMini(camX, halfW) {
+    const g = this.game, cv = $('mini'); if (!g || !cv) return; const now = performance.now(); if (now - this.miniT < 110) return; this.miniT = now;
+    const ctx = cv.getContext('2d'), W = cv.width, H = cv.height, L = g.map.length, X = (x) => 6 + (x + L / 2) / L * (W - 12);
+    const c0 = ARMIES[g.army].css, c1 = ARMIES[1 - g.army].css;
+    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#2b3a22'; ctx.fillRect(4, H / 2 - 3, W - 8, 6);
+    const fr = [g.bases[0], g.towers[0], ...g.alive[0]];
+    for (const [b, col] of [[g.bases[0], c0], [g.bases[1], c1]]) { ctx.fillStyle = col; ctx.fillRect(X(b.x) - 5, H / 2 - 10, 10, 20); }
+    for (const [t, col] of [[g.towers[0], c0], [g.towers[1], c1]]) if (!t.dead) { ctx.fillStyle = '#f0c850'; ctx.fillRect(X(t.x) - 2, H / 2 - 8, 4, 16); ctx.fillStyle = col; ctx.fillRect(X(t.x) - 2, H / 2 - 8, 4, 4); }
+    for (const u of g.alive[0]) { ctx.fillStyle = c0; ctx.fillRect(X(u.x) - 1.5, H / 2 - 1.5 + (u.z / g.map.zHalf) * 4, 3, 3); }
+    for (const u of g.alive[1]) { let seen = false; for (const f of fr) if (Math.abs(f.x - u.x) < 24) { seen = true; break; } if (!seen) continue; ctx.fillStyle = c1; ctx.fillRect(X(u.x) - 1.5, H / 2 - 1.5 + (u.z / g.map.zHalf) * 4, 3, 3); }
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(X(camX - halfW), 3, Math.max(8, X(camX + halfW) - X(camX - halfW)), H - 6);
   }
   toast(txt) { const t = $('toast'); t.textContent = txt; t.classList.add('on'); clearTimeout(this.toastT); this.toastT = setTimeout(() => t.classList.remove('on'), 1300); }
   denied(reason) { if (REASON[reason]) this.toast(REASON[reason]); }

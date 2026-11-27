@@ -5,16 +5,16 @@ export const UPGRADES = {
   defense: { name: 'Defensa',  desc: '-6 % de daño recibido', max: 5, costs: [200, 340, 520, 760, 1050] },
   pop:     { name: 'Población', desc: '+10 de límite', max: 5, costs: [180, 300, 480, 700, 950] },
 };
-export const START_GOLD = 200, BASE_INCOME = 8, BASE_POP = 30;
+export const START_GOLD = 200, BASE_INCOME = 5, BASE_POP = 30;
 
 export class Economy {
   constructor(opts = {}) {
-    this.gold = opts.gold ?? START_GOLD; this.incomeMul = opts.incomeMul ?? 1; this.popUsed = 0;
+    this.gold = opts.gold ?? START_GOLD; this.incomeMul = opts.incomeMul ?? 1; this.popUsed = 0; this.unitInc = 0;   // ingresos que aportan los soldados vivos
     this.level = { income: 0, attack: 0, defense: 0, pop: 0 };
     Object.assign(this.level, opts.levels || {});
     this.totalEarned = 0; this.passiveDmg = opts.passiveDmg ?? 1;
   }
-  get income() { return (BASE_INCOME + 3 * this.level.income) * this.incomeMul; }
+  get income() { return (BASE_INCOME + 3 * this.level.income + this.unitInc) * this.incomeMul; }
   get popCap() { return BASE_POP + 10 * this.level.pop; }
   get attackBonus() { return (1 + 0.08 * this.level.attack) * this.passiveDmg; }
   get defenseFactor() { return 1 - 0.06 * this.level.defense; }

@@ -1,11 +1,11 @@
 /* ai.js — el ejército enemigo. Gana monedas, elige tropas que contrarrestan a las del jugador, compra mejoras y manda oleadas. Lógica pura. */
-import { UNITS, ORDER, typeMult, defenseFactor } from './units.js';
+import { UNITS, ORDER, matchup } from './units.js';
 import { UPGRADES } from './economy.js';
 
 export const DIFFICULTY = {
   facil:   { name: 'Fácil',   incomeMul: 0.80, think: 3.2, err: 0.40, upgrade: 0.25, waveGrow: 0.010, bonusPerWave: 10, tierShift: 1 },
   normal:  { name: 'Normal',  incomeMul: 1.10, think: 1.6, err: 0.12, upgrade: 0.60, waveGrow: 0.025, bonusPerWave: 25, tierShift: 0 },
-  dificil: { name: 'Difícil', incomeMul: 1.32, think: 1.0, err: 0.02, upgrade: 0.95, waveGrow: 0.040, bonusPerWave: 40, tierShift: -1 },
+  dificil: { name: 'Difícil', incomeMul: 1.48, think: 1.0, err: 0.02, upgrade: 0.95, waveGrow: 0.045, bonusPerWave: 45, tierShift: -1 },
 };
 
 export class AI {
@@ -14,12 +14,7 @@ export class AI {
     this.t = 1.5; this.lastWave = 1; this.saving = 0; this.baseIncomeMul = this.cfg.incomeMul * (mods.incomeMul ?? 1);
     game.eco[team].incomeMul = this.baseIncomeMul; this.upgradeOrder = ['income', 'attack', 'defense', 'pop', 'income', 'attack', 'defense'];
   }
-  /** Valor de `u` contra la tropa `p`: daño que le hace menos daño que recibe, relativo a la vida de cada uno. */
-  matchup(u, p) {
-    const a = u.dmg * typeMult(u.dtype, p.armor) * defenseFactor(p.def) / p.hp * (1 / u.atk);
-    const b = p.dmg * typeMult(p.dtype, u.armor) * defenseFactor(u.def) / u.hp * (1 / p.atk);
-    return a - b * 0.8;
-  }
+  matchup(u, p) { return matchup(u, p); }
   update(dt) {
     const g = this.g, eco = g.eco[this.team];
     if (g.wave !== this.lastWave) {   // nueva oleada: bono de monedas y la IA se vuelve un poco más fuerte
