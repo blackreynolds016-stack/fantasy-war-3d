@@ -33,6 +33,7 @@ select,input[type=range]{background:#2a2119;color:var(--txt);border:2px solid va
 .bases{flex:1;display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px 8px;min-width:0}
 .hb{flex:1;min-width:0}.hb span{display:block;font-size:9px;letter-spacing:1px;color:var(--dim);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hb.r{text-align:right}
 .hb i{display:block;height:10px;background:#000a;border-radius:6px;overflow:hidden;border:1px solid #0008}.hb u{display:block;height:100%;width:100%;background:var(--blue);transition:width .2s}.hb.r u{background:var(--red);margin-left:auto}
+.hb i.t{height:5px;margin-top:3px}.hb i.t u,.hb.r i.t u{background:var(--gold)}
 .wave{text-align:center;min-width:80px}.wave b{display:block;font-size:12px;color:var(--gold);letter-spacing:1px}.wave small{font-size:10px;color:var(--dim)}
 .ctrls{display:flex;gap:6px}.mini{width:40px;height:40px;border-radius:10px;border:2px solid var(--line);background:var(--panel);color:var(--txt);font-weight:900;font-size:15px}.mini.on{border-color:var(--gold);color:var(--gold)}
 #bar{position:absolute;left:calc(var(--sal) + 6px);right:calc(var(--sar) + 6px);bottom:calc(var(--sab) + 6px);display:flex;gap:5px;justify-content:center}
