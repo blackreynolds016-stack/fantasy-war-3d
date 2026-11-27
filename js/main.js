@@ -123,6 +123,7 @@ function handle(ev) {
     }
     case 'proj': if (near(ev.p.x0 ?? cam.x)) snd(ev.p.kind === 'fire' ? 'magic' : 'arrow', 0.1); break;
     case 'death': if (near(ev.u.x)) snd('death', 0.1); break;
+    case 'heal': if (near(ev.u.x)) { fx.burst(ev.u.x, 1.4, ev.u.z, 7, { color: 0x7bff9a, speed: 1.2, life: .7, size: .22, gravity: -2, up: 2 }); snd('upgrade', 0.3); } break;
     case 'coin': if (ev.team === 0) { fx.coin(ev.x, 1.6, ev.z); snd('coin', 0.15); } break;
     case 'explode': fx.explosion(ev.x, ev.z, ev.r, ev.kind); if (near(ev.x)) snd(ev.kind === 'fire' ? 'boom' : 'heavy', 0.1); break;
     case 'baseHit': { const c = W && (ev.tower ? W.towers[ev.team] : W.castles[ev.team]); if (c) { c.userData.shake = 0.25; } fx.smoke(ev.x, 3 + Math.random() * 2, ev.z); snd('heavy', 0.15); break; }

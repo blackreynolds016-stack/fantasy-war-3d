@@ -48,7 +48,7 @@ export class UI {
     const bar = $('bar'); bar.innerHTML = '';
     ORDER.forEach((id, i) => {
       const d = UNITS[id], b = document.createElement('button'); b.className = 'rbtn';
-      b.innerHTML = `<span class="k">${i + 1}</span><span class="q" style="display:none"></span><div class="ic" style="background:${d.color}">${d.name[0]}</div><span class="nm">${d.name}</span><span class="cs">${d.cost}</span><span class="pg"></span>`;
+      b.innerHTML = `<span class="k">${'1234567890-='[i]}</span><span class="q" style="display:none"></span><div class="ic" style="background:${d.color}">${d.name[0]}</div><span class="nm">${d.name}</span><span class="cs">${d.cost}</span><span class="pg"></span>`;
       b.onclick = () => this.h.onRecruit(id);
       bar.appendChild(b); this.btns[id] = { b, q: b.querySelector('.q'), cs: b.querySelector('.cs') };
     });
@@ -76,7 +76,7 @@ export class UI {
     const ch = () => { this.set = { quality: q.value, sound: +s.value, vol: +v.value, fps: +f.value }; this.save(); this.h.onSettings(this.set); };
     q.onchange = s.onchange = v.oninput = f.onchange = ch;
     addEventListener('keydown', (e) => {
-      if (!this.game || e.repeat) return; const i = '12345678'.indexOf(e.key);
+      if (!this.game || e.repeat) return; const i = '1234567890-='.indexOf(e.key);
       if (i >= 0) this.h.onRecruit(ORDER[i]); else if (e.key === 'Escape' || e.key === 'p') this.h.onPause();
     });
   }

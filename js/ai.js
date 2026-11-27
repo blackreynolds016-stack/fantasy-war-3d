@@ -57,6 +57,7 @@ export class AI {
       s += 0.12 * (u.hp * u.dmg / u.cost / 100);                           // rendimiento por moneda
       if (u.ranged && rangedShare < 0.25) s += 0.25; if (u.ranged && rangedShare > 0.45) s -= 0.4;   // equilibrio con tropas a distancia
       if (mine.length < 3 && u.id === 'recluta') s += 0.1;
+      if (u.heal) s = mine.length >= 7 && !mine.some(x => x.def.heal) ? 0.25 : -1;   // un sanador cuando ya hay ejército
       s += (g.rand() - 0.5) * 2 * this.cfg.err * 0.8;                        // variar decisiones
       return [id, s];
     });

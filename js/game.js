@@ -98,6 +98,7 @@ export class Game {
       if (u.animLeft <= 0) u.state = 'walk';
       return;
     }
+    if (d.heal) { this.updateHealer(u, dt); return; }
     u.retarget -= dt;
     const tg = u.target;
     const valid = tg && (tg.isBase ? !tg.dead : tg.state !== 'dead');
@@ -121,6 +122,21 @@ export class Game {
     const zl = this.map.zHalf; if (u.z > zl) u.z = zl; if (u.z < -zl) u.z = -zl;
   }
 
+  /** El sacerdote cura al aliado más herido a su alcance; si no hay heridos, acompaña a la línea aliada desde atrás. */
+  updateHealer(u, dt) {
+    const d = u.def; let best = null, bf = 0.97, front = null;
+    for (const a of this.alive[u.team]) {
+      if (a === u) continue;
+      if (!a.def.heal && (front === null || (u.dir > 0 ? a.x > front : a.x < front))) front = a.x;
+      const f = a.hp / a.maxHp, dd = Math.hypot(a.x - u.x, a.z - u.z);
+      if (f < bf && dd <= d.range) { bf = f; best = a; }
+    }
+    if (best) { u.moving = false; if (u.cd <= 0) this.startAttack(u, best); return; }
+    // sin heridos: avanza hasta quedar unos metros detrás del frente aliado
+    let tx = front === null ? this.bases[u.team].x + u.dir * 9 : front - u.dir * 4;
+    const gap = (tx - u.x) * u.dir;
+    if (gap > 0.3) { u.x += u.dir * Math.min(gap, d.speed * dt); u.moving = true; u.dirx = u.dir; } else u.moving = false;
+  }
   towerFire(dt) {
     for (const tw of this.towers) {
       if (tw.dead) continue; tw.cd -= dt; if (tw.cd > 0) continue;
@@ -137,9 +153,10 @@ export class Game {
   resolveAttack(u) {
     const d = u.def, t = u.attackTarget, eco = this.eco[u.team], teco = this.eco[1 - u.team];
     if (!t || (t.isBase ? t.dead : t.state === 'dead')) return;
+    if (d.heal) { if (t.team === u.team) { const amt = d.heal * eco.attackBonus; const before = t.hp; t.hp = Math.min(t.maxHp, t.hp + amt); if (t.hp > before) this.emit({ t: 'heal', u: t, amt: t.hp - before }); } return; }
     if (d.ranged) { const p = new Projectile(d.ranged, u, t, 0, u.team, d.splash || 0, d); p.srcUnit = u; this.projectiles.push(p); this.emit({ t: 'proj', p }); return; }
     if (!inRange(u, t) && Math.hypot(t.x - u.x, (t.z || 0) - u.z) > d.range * 1.5 + (t.r || 0)) return;     // el objetivo escapó: el golpe falla
-    let mult = 1, heavy = false;
+    let mult = 1, heavy = false; if (d.rage && u.hp < u.maxHp * 0.5) mult = 1.4;
     if (d.heavyHit) { u.hits++; if (u.hits % d.heavyHit === 0) { mult = 1.6; heavy = true; } }
     if (t.isBase) { this.hitBase(t, d.dmg * eco.attackBonus * d.siege * mult, u); }
     else this.hitUnit(u, t, computeDamage(u, t.def, eco, teco, mult), heavy);

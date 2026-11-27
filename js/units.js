@@ -32,12 +32,20 @@ export const UNITS = {
                hp: 130, dmg: 14, def: 2, speed: 3.0, range: 2.5, atk: 1.00, cost: 100, recruit: 2.6, pop: 1, armor: 'ligera', dtype: 'perforante',  style: 'spear',  scale: 1.3,  siege: 0.9, tier: 1, color: '#c8754a' },
   asesino:   { id: 'asesino',   name: 'Sombra',             role: 'Asesino',            desc: 'Veloz. Corre hacia arqueros y magos y los elimina con dos dagas.',
                hp: 85,  dmg: 18, def: 1, speed: 5.2, range: 1.4, atk: 0.55, cost: 130, recruit: 3.0, pop: 1, armor: 'ligera', dtype: 'filo',        style: 'dagger', scale: 1.25, siege: 0.7, tier: 2, color: '#8a5cd0', prefer: 'back' },
+  ballestero:{ id: 'ballestero',name: 'Ballestero',        role: 'Ballestero',         desc: 'Virotes pesados que perforan armaduras. Dispara más lento que el cazador, pero golpea mucho más fuerte.',
+               hp: 90,  dmg: 22, def: 1, speed: 2.8, range: 11,  atk: 1.90, cost: 150, recruit: 3.5, pop: 1, armor: 'ligera', dtype: 'perforante',  style: 'bow',    scale: 1.28, siege: 0.8, tier: 2, color: '#b8503a', ranged: 'arrow' },
+  samurai:   { id: 'samurai',   name: 'Samurái',            role: 'Espadachín de élite', desc: 'Katana veloz y armadura laqueada. Rápido y letal contra tropas ligeras.',
+               hp: 210, dmg: 22, def: 4, speed: 3.6, range: 1.7, atk: 1.00, cost: 200, recruit: 4.0, pop: 2, armor: 'ligera', dtype: 'filo',        style: 'sword',  scale: 1.3,  siege: 1.0, tier: 2, color: '#2e3a56' },
+  barbaro:   { id: 'barbaro',   name: 'Bárbaro',            role: 'Guerrero de hacha',  desc: 'Hacha doble. Cuando le queda menos de la mitad de la vida entra en furia: +40 % de daño.',
+               hp: 240, dmg: 30, def: 1, speed: 3.3, range: 1.8, atk: 1.40, cost: 170, recruit: 3.5, pop: 2, armor: 'ligera', dtype: 'filo',        style: 'great',  scale: 1.45, siege: 1.1, tier: 2, color: '#a86a3a', rage: true },
+  sacerdote: { id: 'sacerdote', name: 'Sacerdote',          role: 'Sanador',            desc: 'No ataca: cura al aliado más herido cerca de él. Mantenlo detrás de tu línea.',
+               hp: 90,  dmg: 0,  def: 0, speed: 2.6, range: 9,   atk: 2.00, cost: 180, recruit: 4.0, pop: 2, armor: 'ligera', dtype: 'magico',      style: 'staff',  scale: 1.3,  siege: 0,   tier: 3, color: '#e9e3d3', heal: 26 },
   mago:      { id: 'mago',      name: 'Mago de Ember',      role: 'Mago',               desc: 'Bola de fuego en área. Muy buen daño en grupos; muy débil de cerca.',
                hp: 80,  dmg: 26, def: 0, speed: 2.6, range: 11,  atk: 2.20, cost: 200, recruit: 4.5, pop: 2, armor: 'ligera', dtype: 'magico',      style: 'staff',  scale: 1.3,  siege: 0.8, tier: 2, color: '#ff8a3a', ranged: 'fire', splash: 2.6 },
   gigante:   { id: 'gigante',   name: 'Coloso',             role: 'Gigante',            desc: 'Enorme. Su garrote golpea en área y derriba bases. Lento y caro.',
                hp: 760, dmg: 40, def: 6, speed: 1.9, range: 2.4, atk: 1.80, cost: 420, recruit: 8.0, pop: 4, armor: 'grande', dtype: 'contundente', style: 'club',   scale: 2.1, siege: 2.0, tier: 4, color: '#a07a50', splash: 2.4 },
 };
-export const ORDER = ['recluta', 'escudero', 'lancero', 'arquero', 'asesino', 'caballero', 'mago', 'gigante'];
+export const ORDER = ['recluta', 'escudero', 'lancero', 'arquero', 'ballestero', 'asesino', 'samurai', 'barbaro', 'caballero', 'sacerdote', 'mago', 'gigante'];
 
 export function attackTimes(def) {
   const clip = STYLE_ATTACK[def.style], dur = Math.min(clip.dur, def.atk);
