@@ -2,7 +2,7 @@
    Equipo 0 = jugador (avanza hacia +X), equipo 1 = IA (avanza hacia -X). */
 import { UNITS, ORDER, attackTimes } from './units.js';
 import { Economy, UPGRADES } from './economy.js';
-import { computeDamage, pickTarget, inRange, baseEdge, Projectile, DETECT, BASE_HALF } from './combat.js';
+import { computeDamage, pickTarget, inRange, baseEdge, Projectile, DETECT, BASE_HALF, TOWER } from './combat.js';
 import { AI } from './ai.js';
 
 export const WAVE_T = 45;
@@ -26,6 +26,8 @@ export class Game {
       { isBase: true, team: 0, x: -half, z: 0, hp: bhp * army0.baseHp, maxHp: bhp * army0.baseHp, dead: false, r: BASE_HALF },
       { isBase: true, team: 1, x: half, z: 0, hp: bhp * army1.baseHp * (aiMods.baseHpMul ?? 1), maxHp: bhp * army1.baseHp * (aiMods.baseHpMul ?? 1), dead: false, r: BASE_HALF },
     ];
+    this.towers = [0, 1].map(team => ({ isBase: true, isTower: true, team, x: this.bases[team].x + (team === 0 ? 1 : -1) * TOWER.dist, z: 0, hp: TOWER.hp, maxHp: TOWER.hp, dead: false, r: TOWER.r, ty: 3.2, cd: 1.2,
+      def: { scale: 4.5, dmg: TOWER.dmg, dtype: 'perforante', siege: 1 } }));
     this.train = [{}, {}]; for (const t of [0, 1]) for (const id of ORDER) this.train[t][id] = { queue: 0, t: 0 };
     this.stats = [{ kills: 0, lost: 0, spawned: 0, damage: 0 }, { kills: 0, lost: 0, spawned: 0, damage: 0 }];
     this.aiHpMul = aiMods.hpMul ?? 1;
@@ -34,6 +36,8 @@ export class Game {
   }
   drain() { const e = this.events; this.events = []; return e; }
   emit(e) { if (this.events.length < 600) this.events.push(e); }
+  /** Lo que el enemigo debe golpear primero: la torre mientras exista; después, el castillo. */
+  objective(team) { const t = this.towers[team]; return t.dead ? this.bases[team] : t; }
   aliveOf(team) { return this.units.filter(u => u.team === team && u.state !== 'dead'); }
   count(team) { let n = 0; for (const u of this.units) if (u.team === team && u.state !== 'dead') n++; return n; }
 
@@ -82,7 +86,7 @@ export class Game {
     }
     this.alive[0].length = 0; this.alive[1].length = 0; for (const u of this.units) if (u.state !== 'dead') this.alive[u.team].push(u);
     for (const u of this.units) if (u.state !== 'dead') this.updateUnit(u, dt);
-    this.separate(dt); this.updateProjectiles(dt); this.cleanup(dt); this.checkEnd();
+    this.towerFire(dt); this.separate(dt); this.updateProjectiles(dt); this.cleanup(dt); this.checkEnd();
   }
 
   updateUnit(u, dt) {
@@ -99,7 +103,7 @@ export class Game {
     const valid = tg && (tg.isBase ? !tg.dead : tg.state !== 'dead');
     if (!valid || u.retarget <= 0 || !inRange(u, tg)) {
       u.retarget = 0.3 + this.rand() * 0.15;
-      u.target = pickTarget(u, this.alive[1 - u.team], this.bases[1 - u.team]);
+      u.target = pickTarget(u, this.alive[1 - u.team], this.objective(1 - u.team));
     }
     const t = u.target;
     if (t && inRange(u, t)) {
@@ -109,7 +113,7 @@ export class Game {
     }
     // avanzar: hacia el objetivo o, si no hay, hacia la base enemiga
     let tx, tz;
-    if (t) { tx = t.x; tz = t.isBase ? u.z : t.z; if (t.isBase) tx = t.x - u.dir * (BASE_HALF + 0.5); } else { tx = this.bases[1 - u.team].x; tz = u.lane; }
+    if (t) { tx = t.x; tz = t.isBase ? u.z : t.z; if (t.isBase) tx = t.x - u.dir * ((t.r ?? BASE_HALF) + 0.5); } else { tx = this.bases[1 - u.team].x; tz = u.lane; }
     let vx = tx - u.x, vz = tz - u.z; const l = Math.hypot(vx, vz) || 1;
     const sp = d.speed * dt; u.x += vx / l * sp; u.z += vz / l * sp;
     u.moving = true; u.dirx = vx / l;
@@ -117,6 +121,14 @@ export class Game {
     const zl = this.map.zHalf; if (u.z > zl) u.z = zl; if (u.z < -zl) u.z = -zl;
   }
 
+  towerFire(dt) {
+    for (const tw of this.towers) {
+      if (tw.dead) continue; tw.cd -= dt; if (tw.cd > 0) continue;
+      let best = null, bd = TOWER.range; for (const e of this.alive[1 - tw.team]) { const d = Math.hypot(e.x - tw.x, e.z - tw.z); if (d < bd) { bd = d; best = e; } }
+      if (!best) { tw.cd = 0.3; continue; }
+      tw.cd = TOWER.atk; const p = new Projectile('arrow', tw, best, 0, tw.team, 0, tw.def); p.srcUnit = tw; this.projectiles.push(p); this.emit({ t: 'proj', p, tower: true });
+    }
+  }
   startAttack(u, t) {
     const d = u.def, at = attackTimes(d);
     u.state = 'attack'; u.winding = true; u.windup = at.windup; u.animLeft = Math.max(at.dur, d.atk * 0.6); u.cd = d.atk; u.attackTarget = t;
@@ -144,9 +156,10 @@ export class Game {
     if (t.hp <= 0) this.kill(t, srcTeam);
   }
   hitBase(b, dmg, src) {
-    if (b.dead) return; b.hp -= dmg; this.stats[src.team].damage += dmg;
-    this.emit({ t: 'baseHit', team: b.team, x: b.x, z: src.z, dmg });
-    if (b.hp <= 0) { b.hp = 0; b.dead = true; this.emit({ t: 'baseDown', team: b.team }); }
+    if (b.dead) return; if (!b.isTower && !this.towers[b.team].dead) return;   // el castillo está protegido por su torre
+    b.hp -= dmg; this.stats[src.team].damage += dmg;
+    this.emit({ t: 'baseHit', team: b.team, tower: !!b.isTower, x: b.x, z: src.z, dmg });
+    if (b.hp <= 0) { b.hp = 0; b.dead = true; this.emit({ t: b.isTower ? 'towerDown' : 'baseDown', team: b.team }); }
   }
   kill(t, killerTeam) {
     t.state = 'dead'; t.deadT = 0; t.hp = 0; t.moving = false; this.eco[t.team].popUsed -= t.def.pop; this.stats[t.team].lost++; this.stats[killerTeam].kills++;
@@ -161,7 +174,7 @@ export class Game {
       if (p.kind === 'fire') {
         this.emit({ t: 'explode', x: p.tx, z: p.tz, r: p.splash, kind: 'fire' });
         for (const e of this.units) if (e.team !== p.team && e.state !== 'dead') { const dd = Math.hypot(e.x - p.tx, e.z - p.tz); if (dd < p.splash + e.r) this.hitUnit(src, e, computeDamage(src, e.def, eco, teco, 1 - 0.5 * Math.min(1, dd / p.splash), true), false, p.team); }
-        const b = this.bases[1 - p.team]; if (!b.dead && Math.abs(b.x - p.tx) < BASE_HALF + p.splash) this.hitBase(b, p.def.dmg * eco.attackBonus * p.def.siege, { team: p.team, z: p.tz });
+        const b = this.objective(1 - p.team); if (!b.dead && Math.abs(b.x - p.tx) < (b.r ?? BASE_HALF) + p.splash) this.hitBase(b, p.def.dmg * eco.attackBonus * p.def.siege, { team: p.team, z: p.tz });
       } else if (t) {
         if (t.isBase) { if (!t.dead) this.hitBase(t, p.def.dmg * eco.attackBonus * p.def.siege, { team: p.team, z: p.tz }); }
         else if (t.state !== 'dead') this.hitUnit(src, t, computeDamage(src, t.def, eco, teco, 1, true), false, p.team);

@@ -21,21 +21,21 @@ export const STYLE_ATTACK = {
    siege multiplicador de daño contra bases · prefer 'back' = prioriza arqueros y magos · tier oleada mínima para que la IA lo use */
 export const UNITS = {
   recluta:   { id: 'recluta',   name: 'Recluta',            role: 'Infantería básica',  desc: 'Barato y rápido de entrenar. Cae pronto, pero hace bulto y paga su costo.',
-               hp: 100, dmg: 9,  def: 1, speed: 3.2, range: 1.5, atk: 0.90, cost: 50,  recruit: 1.8, pop: 1, armor: 'ligera', dtype: 'filo',        style: 'sword',  scale: 0.95, siege: 1.0, tier: 1, color: '#c9a24a' },
+               hp: 100, dmg: 9,  def: 1, speed: 3.2, range: 1.5, atk: 0.90, cost: 50,  recruit: 1.8, pop: 1, armor: 'ligera', dtype: 'filo',        style: 'sword',  scale: 1.25, siege: 1.0, tier: 1, color: '#c9a24a' },
   escudero:  { id: 'escudero',  name: 'Escudero',           role: 'Espadachín',         desc: 'Espada y escudo. Recibe 35 % menos daño de flechas y magia y aguanta la primera línea.',
-               hp: 170, dmg: 13, def: 5, speed: 2.9, range: 1.6, atk: 1.00, cost: 110, recruit: 3.0, pop: 1, armor: 'ligera', dtype: 'filo',        style: 'sword',  scale: 1.0,  siege: 1.0, tier: 1, color: '#4a78c2', shielded: true },
+               hp: 170, dmg: 13, def: 5, speed: 2.9, range: 1.6, atk: 1.00, cost: 110, recruit: 3.0, pop: 1, armor: 'ligera', dtype: 'filo',        style: 'sword',  scale: 1.3,  siege: 1.0, tier: 1, color: '#4a78c2', shielded: true },
   caballero: { id: 'caballero', name: 'Caballero de Acero', role: 'Caballero pesado',   desc: 'Armadura completa. Su hoja destroza a los ligeros y cada 3.er golpe cae con más fuerza.',
-               hp: 330, dmg: 24, def: 9, speed: 2.4, range: 1.7, atk: 1.30, cost: 240, recruit: 5.0, pop: 2, armor: 'pesada', dtype: 'filo',        style: 'great',  scale: 1.1,  siege: 1.3, tier: 2, color: '#9aa4b4', heavyHit: 3 },
+               hp: 330, dmg: 24, def: 9, speed: 2.4, range: 1.7, atk: 1.30, cost: 240, recruit: 5.0, pop: 2, armor: 'pesada', dtype: 'filo',        style: 'great',  scale: 1.45,  siege: 1.3, tier: 2, color: '#9aa4b4', heavyHit: 3 },
   arquero:   { id: 'arquero',   name: 'Cazador',            role: 'Arquero',            desc: 'Dispara flechas desde lejos. Frágil: protégelo con tropas delante.',
-               hp: 70,  dmg: 11, def: 0, speed: 3.0, range: 13,  atk: 1.10, cost: 90,  recruit: 2.5, pop: 1, armor: 'ligera', dtype: 'perforante',  style: 'bow',    scale: 0.95, siege: 0.8, tier: 1, color: '#58b060', ranged: 'arrow' },
+               hp: 70,  dmg: 11, def: 0, speed: 3.0, range: 13,  atk: 1.10, cost: 90,  recruit: 2.5, pop: 1, armor: 'ligera', dtype: 'perforante',  style: 'bow',    scale: 1.25, siege: 0.8, tier: 1, color: '#58b060', ranged: 'arrow' },
   lancero:   { id: 'lancero',   name: 'Lancero',            role: 'Lancero',            desc: 'Su pica atraviesa a gigantes y blindados: +45 % de daño contra tamaño grande.',
-               hp: 130, dmg: 14, def: 2, speed: 3.0, range: 2.5, atk: 1.00, cost: 100, recruit: 2.6, pop: 1, armor: 'ligera', dtype: 'perforante',  style: 'spear',  scale: 1.0,  siege: 0.9, tier: 1, color: '#c8754a' },
+               hp: 130, dmg: 14, def: 2, speed: 3.0, range: 2.5, atk: 1.00, cost: 100, recruit: 2.6, pop: 1, armor: 'ligera', dtype: 'perforante',  style: 'spear',  scale: 1.3,  siege: 0.9, tier: 1, color: '#c8754a' },
   asesino:   { id: 'asesino',   name: 'Sombra',             role: 'Asesino',            desc: 'Veloz. Corre hacia arqueros y magos y los elimina con dos dagas.',
-               hp: 85,  dmg: 18, def: 1, speed: 5.2, range: 1.4, atk: 0.55, cost: 130, recruit: 3.0, pop: 1, armor: 'ligera', dtype: 'filo',        style: 'dagger', scale: 0.95, siege: 0.7, tier: 2, color: '#8a5cd0', prefer: 'back' },
+               hp: 85,  dmg: 18, def: 1, speed: 5.2, range: 1.4, atk: 0.55, cost: 130, recruit: 3.0, pop: 1, armor: 'ligera', dtype: 'filo',        style: 'dagger', scale: 1.25, siege: 0.7, tier: 2, color: '#8a5cd0', prefer: 'back' },
   mago:      { id: 'mago',      name: 'Mago de Ember',      role: 'Mago',               desc: 'Bola de fuego en área. Muy buen daño en grupos; muy débil de cerca.',
-               hp: 80,  dmg: 26, def: 0, speed: 2.6, range: 11,  atk: 2.20, cost: 200, recruit: 4.5, pop: 2, armor: 'ligera', dtype: 'magico',      style: 'staff',  scale: 1.0,  siege: 0.8, tier: 2, color: '#ff8a3a', ranged: 'fire', splash: 2.6 },
+               hp: 80,  dmg: 26, def: 0, speed: 2.6, range: 11,  atk: 2.20, cost: 200, recruit: 4.5, pop: 2, armor: 'ligera', dtype: 'magico',      style: 'staff',  scale: 1.3,  siege: 0.8, tier: 2, color: '#ff8a3a', ranged: 'fire', splash: 2.6 },
   gigante:   { id: 'gigante',   name: 'Coloso',             role: 'Gigante',            desc: 'Enorme. Su garrote golpea en área y derriba bases. Lento y caro.',
-               hp: 760, dmg: 40, def: 6, speed: 1.9, range: 2.4, atk: 1.80, cost: 420, recruit: 8.0, pop: 4, armor: 'grande', dtype: 'contundente', style: 'club',   scale: 1.55, siege: 2.0, tier: 4, color: '#a07a50', splash: 2.4 },
+               hp: 760, dmg: 40, def: 6, speed: 1.9, range: 2.4, atk: 1.80, cost: 420, recruit: 8.0, pop: 4, armor: 'grande', dtype: 'contundente', style: 'club',   scale: 2.1, siege: 2.0, tier: 4, color: '#a07a50', splash: 2.4 },
 };
 export const ORDER = ['recluta', 'escudero', 'lancero', 'arquero', 'asesino', 'caballero', 'mago', 'gigante'];
 

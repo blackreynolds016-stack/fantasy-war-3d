@@ -1,5 +1,6 @@
 /* world.js — escenario 3D: cielo, terreno, camino, montañas, árboles, nubes y los dos castillos. Todo se genera por código (sin imágenes). */
 import * as THREE from 'three';
+import { TOWER } from './combat.js';
 
 function rng(seed) { let a = seed; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
@@ -21,7 +22,7 @@ function roadTexture(col) {
 
 export function buildWorld(scene, map, army, quality) {
   const R = rng(42), W = { castles: [], clouds: [], flags: [] }, L = map.length, root = new THREE.Group(); scene.add(root); W.root = root;
-  scene.background = skyTexture(map.skyTop, map.skyBot); scene.fog = new THREE.Fog(map.fog, 55, quality === 'low' ? 140 : 190);
+  scene.background = skyTexture(map.skyTop, map.skyBot); scene.fog = new THREE.Fog(map.fog, 90, quality === 'low' ? 140 : 190);
   // luces
   const hemi = new THREE.HemisphereLight(0xdfeeff, 0x6a5a40, 1.05); root.add(hemi);
   const sun = new THREE.DirectionalLight(map.sun, map.sunI); sun.position.set(-20, 40, 28); sun.target.position.set(0, 0, 0); root.add(sun, sun.target); W.sun = sun; W.hemi = hemi;
@@ -50,6 +51,7 @@ export function buildWorld(scene, map, army, quality) {
   for (let i = 0; i < 9; i++) { const g = new THREE.Group(); for (let k = 0; k < 4; k++) { const m = new THREE.Mesh(cg, cmat); m.scale.set(3 + R() * 2.5, 1.2 + R(), 2); m.position.set(k * 3.2 - 5, R() * .8, 0); g.add(m); } g.position.set((R() - .5) * L * 1.3, 26 + R() * 14, -60 - R() * 20); g.userData.v = .4 + R() * .6; root.add(g); W.clouds.push(g); }
   // castillos
   for (const team of [0, 1]) W.castles.push(buildCastle(root, team, (team === 0 ? -1 : 1) * (L / 2 - 8), army[team], map.id));
+  W.towers = []; for (const team of [0, 1]) W.towers.push(buildTower(root, team, (team === 0 ? -1 : 1) * (L / 2 - 8) + (team === 0 ? 1 : -1) * TOWER.dist, army[team], map.id));
   W.update = (dt, camX) => {
     for (const c of W.clouds) { c.position.x += c.userData.v * dt; if (c.position.x > L * .8) c.position.x = -L * .8; }
     sun.position.set(camX - 20, 40, 28); sun.target.position.set(camX, 0, 0); sun.target.updateMatrixWorld();
@@ -85,4 +87,27 @@ function buildCastle(scene, team, x, army, mapId) {
   const bn2 = bn.clone(); bn2.position.z = -1.9; g.add(bn2);
   scene.add(g); g.userData.flag = flag; g.userData.baseScale = 1; g.userData.fall = 0; return g;
 }
-export function wireFlags(W) { for (const c of W.castles) W.flags.push(c.userData.flag); }
+
+/** Torre con corona: fuste de piedra, balcón almenado, franja con el color del ejército y una corona dorada con gemas arriba. */
+function buildTower(scene, team, x, army, mapId) {
+  const g = new THREE.Group(); g.position.x = x; const dir = team === 0 ? 1 : -1;
+  const stone = new THREE.MeshStandardMaterial({ color: mapId === 'cenizas' ? 0x62585e : 0xc0bcb0, roughness: .95, flatShading: true }), dark = new THREE.MeshStandardMaterial({ color: 0x2c2723, roughness: 1 });
+  const band = new THREE.MeshStandardMaterial({ color: army.color, roughness: .6 }), gold = new THREE.MeshStandardMaterial({ color: 0xf0c850, roughness: .3, metalness: .7, emissive: 0x4a3200 });
+  const gem = new THREE.MeshStandardMaterial({ color: army.color, roughness: .2, metalness: .3, emissive: army.color, emissiveIntensity: .45 });
+  const add = (geo, mat, px, py, pz) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  add(new THREE.CylinderGeometry(2.2, 2.5, 1.1, 12), stone, 0, .55, 0);                     // zócalo
+  add(new THREE.CylinderGeometry(1.55, 1.9, 6.2, 12), stone, 0, 4.2, 0);                    // fuste
+  add(new THREE.CylinderGeometry(1.62, 1.62, .55, 12), band, 0, 3.0, 0);                    // franja del equipo
+  add(new THREE.CylinderGeometry(2.3, 1.7, .7, 12), stone, 0, 7.65, 0);                     // balcón
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; add(new THREE.BoxGeometry(.7, .65, .5), stone, Math.cos(a) * 2.15, 8.3, Math.sin(a) * 2.15).rotation.y = -a; }   // almenas
+  for (const yy of [4.6, 6.2]) add(new THREE.BoxGeometry(.2, .9, .35), dark, dir * 1.62, yy, 0);                                       // saeteras hacia el campo
+  add(new THREE.CylinderGeometry(1.2, 1.35, .5, 12), stone, 0, 8.3, 0);                      // suelo del mirador
+  // corona dorada
+  add(new THREE.CylinderGeometry(1.25, 1.1, .6, 12, 1, true), gold, 0, 9.1, 0).material.side = THREE.DoubleSide;
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, h = i % 2 ? 1.0 : 1.5; add(new THREE.ConeGeometry(.24, h, 5), gold, Math.cos(a) * 1.15, 9.4 + h / 2, Math.sin(a) * 1.15); if (i % 2 === 0) add(new THREE.SphereGeometry(.17, 8, 6), gem, Math.cos(a) * 1.15, 9.4 + h + .1, Math.sin(a) * 1.15); }
+  add(new THREE.SphereGeometry(.42, 10, 8), gem, 0, 9.5, 0);                                  // gema central
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.5, .9), new THREE.MeshBasicMaterial({ color: army.color, side: THREE.DoubleSide })); flag.geometry.translate(dir * .75, 0, 0); flag.position.set(0, 11.6, 0); flag.userData = { dir, ph: team * 2 + 1 }; g.add(flag);
+  add(new THREE.CylinderGeometry(.05, .05, 2.4, 5), gold, 0, 10.6, 0);
+  scene.add(g); g.userData.flag = flag; g.userData.fall = 0; g.userData.sink = 8.5; return g;
+}
+export function wireFlags(W) { for (const c of W.castles.concat(W.towers || [])) W.flags.push(c.userData.flag); }

@@ -69,7 +69,7 @@ export class UI {
     go('h-pause', () => this.h.onPause()); go('p-resume', () => this.h.onResume()); go('p-restart', () => this.h.onRestart());
     go('p-settings', () => { this.from = 'pause'; this.show('settings'); }); go('p-menu', () => this.h.onMenu());
     go('e-again', () => this.h.onRestart()); go('e-menu', () => this.h.onMenu());
-    go('h-speed', () => this.h.onSpeed()); go('h-center', () => this.h.onCenter());
+    go('h-all', () => this.h.onAll()); go('h-speed', () => this.h.onSpeed()); go('h-center', () => this.h.onCenter());
     go('h-up', () => { $('upgrades').classList.toggle('hidden'); $('h-up').classList.toggle('on'); });
     const q = $('o-quality'), s = $('o-sound'), v = $('o-vol'), f = $('o-fps');
     q.value = this.set.quality === 'auto' ? 'mid' : this.set.quality; s.value = this.set.sound; v.value = this.set.vol; f.value = this.set.fps;
@@ -97,6 +97,7 @@ export class UI {
     $('h-gold').textContent = Math.floor(e.gold); $('h-inc').textContent = '+' + e.income.toFixed(0) + '/s';
     $('h-pop').textContent = e.popUsed + '/' + e.popCap;
     $('h-b0').style.width = (100 * g.bases[0].hp / g.bases[0].maxHp) + '%'; $('h-b1').style.width = (100 * g.bases[1].hp / g.bases[1].maxHp) + '%';
+    $('h-t0').style.width = (100 * g.towers[0].hp / g.towers[0].maxHp) + '%'; $('h-t1').style.width = (100 * g.towers[1].hp / g.towers[1].maxHp) + '%';
     $('h-wave').textContent = 'OLEADA ' + g.wave; $('h-time').textContent = fmtTime(g.time);
     for (const id of ORDER) {
       const w = this.btns[id], tr = g.train[0][id], why = g.canRecruit(0, id);

@@ -16,7 +16,8 @@ const weak = (navigator.hardwareConcurrency || 4) <= 4 || (navigator.deviceMemor
 
 let renderer, scene, camera, game, W, fx, ui, views = new Map(), selCfg = null;
 let qual = 'mid', res = 1, perfAcc = 0, perfN = 0, perfCool = 0, running = false, paused = false, endT = 0, last = 0;
-const cam = { x: 0, dist: 24, auto: true, vx: 0 };
+const cam = { x: 0, dist: 17, distT: 17, auto: true, all: false };
+const D_MIN = 10, D_MAX = 66;
 const fps = { n: 0, t: 0 };
 
 function setQuality(q) {
@@ -46,7 +47,8 @@ function init() {
     onRecruit: (id) => { if (!game || paused) return; const r = game.recruit(0, id); if (!r.ok) { ui.denied(r.reason); sfx('deny'); } else sfx('click'); },
     onUpgrade: (k) => { if (!game || paused) return; if (!game.upgrade(0, k)) { ui.toast('No disponible'); sfx('deny'); } },
     onSpeed: () => { if (!game) return; game.speed = game.speed === 1 ? 2 : 1; $('h-speed').textContent = 'x' + game.speed; },
-    onCenter: () => { cam.auto = true; },
+    onCenter: () => { cam.auto = true; cam.all = false; cam.distT = 17; },
+    onAll: () => { cam.all = !cam.all; cam.distT = cam.all ? 64 : 17; cam.auto = !cam.all; $('h-all').classList.toggle('on', cam.all); },
     onSettings: applySettings,
   });
   applySettings(ui.set);
@@ -64,12 +66,12 @@ function bindCamera() {
   el.addEventListener('pointerdown', (e) => { el.setPointerCapture(e.pointerId); P.set(e.pointerId, e); lx = e.clientX; pd = P.size === 2 ? dist2() : 0; });
   el.addEventListener('pointermove', (e) => {
     if (!P.has(e.pointerId)) return; P.set(e.pointerId, e);
-    if (P.size === 2) { const d = dist2(); if (pd) cam.dist = Math.min(40, Math.max(14, cam.dist * pd / d)); pd = d; return; }
+    if (P.size === 2) { const d = dist2(); if (pd) cam.distT = Math.min(D_MAX, Math.max(D_MIN, cam.distT * pd / d)); cam.all = false; pd = d; return; }
     const dx = e.clientX - lx; lx = e.clientX; if (Math.abs(dx) > 0) { cam.auto = false; cam.x = Math.max(-lim(), Math.min(lim(), cam.x - dx * cam.dist * 0.0021)); }
   });
   const up = (e) => { P.delete(e.pointerId); pd = 0; if (P.size === 1) lx = [...P.values()][0].clientX; };
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
-  el.addEventListener('wheel', (e) => { e.preventDefault(); cam.dist = Math.min(40, Math.max(14, cam.dist * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
+  el.addEventListener('wheel', (e) => { e.preventDefault(); cam.distT = Math.min(D_MAX, Math.max(D_MIN, cam.distT * (1 + Math.sign(e.deltaY) * 0.1))); cam.all = false; }, { passive: false });
   function dist2() { const [a, b] = [...P.values()]; return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1; }
   addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') { cam.auto = false; cam.x -= 3; } if (e.key === 'ArrowRight') { cam.auto = false; cam.x += 3; } });
 }
@@ -79,8 +81,8 @@ function frontLine() {
   return n === 2 ? s / 2 : (n === 1 ? s : 0);
 }
 function placeCamera(dt) {
-  const lim = game ? game.map.length / 2 - 10 : 50;
-  if (cam.auto && game) { const f = frontLine(); cam.x += (Math.max(-lim, Math.min(lim, f)) - cam.x) * Math.min(1, dt * 1.6); }
+  const lim = game ? game.map.length / 2 - 10 : 50; cam.dist += (cam.distT - cam.dist) * Math.min(1, dt * 4);
+  if (cam.all) cam.x += (0 - cam.x) * Math.min(1, dt * 4); else if (cam.auto && game) { const f = frontLine(); cam.x += (Math.max(-lim, Math.min(lim, f)) - cam.x) * Math.min(1, dt * 1.6); }
   const d = cam.dist; camera.position.set(cam.x, 5 + d * 0.2, d); camera.lookAt(cam.x, 1.6, 0);
 }
 const halfView = () => cam.dist * 0.5 * Math.tan(38 * Math.PI / 360) * 2 * camera.aspect + 8;
@@ -97,7 +99,7 @@ function startBattle(c) {
   game = new Game({ map: { length: map.length, zHalf: map.zHalf }, difficulty: c.diff, army: army0, seed: (Math.random() * 1e9) | 0, ai: {} });
   W = buildWorld(scene, map, armies, qual); if (!W.flags.length) wireFlags(W); W.setShadows(QUAL[qual].shadow);
   if (!fx) fx = new Effects(scene, QUAL[qual].parts); fx.setCap(QUAL[qual].parts); fx.clear();
-  cam.x = game.bases[0].x + 14; cam.auto = true; cam.dist = 24; endT = 0; paused = false; res = 1; applyRes();
+  cam.x = game.bases[0].x + 14; cam.auto = true; cam.all = false; cam.dist = cam.distT = 17; endT = 0; paused = false; res = 1; applyRes();
   ui.attach(game); ui.hud(true); ui.show('none'); running = true; sfx('horn');
 }
 function toMenu() { running = false; paused = false; game = null; clearBattle(); ui.game = null; ui.hud(false); ui.show('menu'); scene.background = new THREE.Color(0x14110f); scene.fog = null; }
@@ -119,11 +121,12 @@ function handle(ev) {
       const v = views.get(ev.u.uid); if (v) v.onHit(ev.dmg);
       if (near(ev.x)) { fx.blood(ev.x, 1.2, ev.z); fx.slash(ev.x, 1.3, ev.z, ev.u.dir, ev.heavy); snd(ev.heavy ? 'heavy' : 'hit', 0.06); } break;
     }
-    case 'proj': if (near(ev.p.x ?? cam.x)) snd(ev.p.kind === 'fire' || ev.p.type === 'fire' ? 'magic' : 'arrow', 0.1); break;
+    case 'proj': if (near(ev.p.x0 ?? cam.x)) snd(ev.p.kind === 'fire' ? 'magic' : 'arrow', 0.1); break;
     case 'death': if (near(ev.u.x)) snd('death', 0.1); break;
     case 'coin': if (ev.team === 0) { fx.coin(ev.x, 1.6, ev.z); snd('coin', 0.15); } break;
     case 'explode': fx.explosion(ev.x, ev.z, ev.r, ev.kind); if (near(ev.x)) snd(ev.kind === 'fire' ? 'boom' : 'heavy', 0.1); break;
-    case 'baseHit': { const c = W && W.castles[ev.team]; if (c) { c.userData.shake = 0.25; } fx.smoke(ev.x, 3 + Math.random() * 2, ev.z); snd('heavy', 0.15); break; }
+    case 'baseHit': { const c = W && (ev.tower ? W.towers[ev.team] : W.castles[ev.team]); if (c) { c.userData.shake = 0.25; } fx.smoke(ev.x, 3 + Math.random() * 2, ev.z); snd('heavy', 0.15); break; }
+    case 'towerDown': { const c = W && W.towers[ev.team]; if (c) c.userData.fall = 0.001; fx.castleBoom(game.towers[ev.team].x); snd('boom', 0); ui.toast(ev.team === 0 ? '¡Tu torre cayó!' : '¡Torre enemiga destruida!'); break; }
     case 'baseDown': { const c = W && W.castles[ev.team]; if (c) c.userData.fall = 0.001; fx.castleBoom(game.bases[ev.team].x); snd('boom', 0); break; }
     case 'wave': ui.toast('¡OLEADA ' + ev.n + '!'); snd('horn', 1); break;
     case 'upgrade': if (ev.team === 0) snd('upgrade', 0.1); break;
@@ -132,10 +135,11 @@ function handle(ev) {
 }
 function castleAnim(dt) {
   if (!W) return;
-  W.castles.forEach((c, i) => {
+  W.castles.concat(W.towers).forEach((c, i) => {
+    i %= 2;
     const u = c.userData; if (c.userData.x0 === undefined) { u.x0 = c.position.x; u.y0 = c.position.y; }
     if (u.shake > 0) { u.shake -= dt; c.position.x = u.x0 + (Math.random() - .5) * 0.12; } else c.position.x = u.x0;
-    if (u.fall > 0) { u.fall = Math.min(1, u.fall + dt * 0.35); c.position.y = u.y0 - u.fall * 3.5; c.rotation.z = (i === 0 ? 1 : -1) * u.fall * 0.12; c.scale.y = 1 - u.fall * 0.35; if (Math.random() < 0.3) fx.smoke(u.x0 + (Math.random() - .5) * 5, 2 + Math.random() * 2, (Math.random() - .5) * 3); }
+    if (u.fall > 0) { u.fall = Math.min(1, u.fall + dt * 0.35); c.position.y = u.y0 - u.fall * (u.sink ?? 3.5); c.rotation.z = (i === 0 ? 1 : -1) * u.fall * 0.12; c.scale.y = 1 - u.fall * 0.35; if (Math.random() < 0.3) fx.smoke(u.x0 + (Math.random() - .5) * 5, 2 + Math.random() * 2, (Math.random() - .5) * 3); }
   });
 }
 

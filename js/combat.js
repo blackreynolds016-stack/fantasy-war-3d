@@ -26,7 +26,9 @@ export function pickTarget(u, enemies, base) {
   if (!base.dead && baseEdge(u, base) <= DETECT) return base;
   return null;
 }
-export const baseEdge = (u, base) => Math.max(0, Math.abs(base.x - u.x) - BASE_HALF);
+export const baseEdge = (u, base) => Math.max(0, Math.abs(base.x - u.x) - (base.r ?? BASE_HALF));
+/** Torre con corona: se levanta delante de cada castillo y hay que derribarla antes de dañar el castillo. */
+export const TOWER = { hp: 1500, range: 14, dmg: 12, atk: 1.7, dist: 10, r: 1.5 };
 
 /** ¿Está el objetivo al alcance? Para unidades se mide entre centros más el radio del objetivo. */
 export function inRange(u, t) {
@@ -39,7 +41,7 @@ let nextPid = 1;
 export class Projectile {
   constructor(kind, from, target, dmg, team, splash, srcDef) {
     this.id = nextPid++; this.kind = kind; this.team = team; this.dmg = dmg; this.splash = splash; this.target = target; this.def = srcDef;
-    this.x0 = from.x; this.z0 = from.z; this.y0 = 1.55 * from.def.scale; this.tx = target.x; this.tz = target.z; this.ty = target.isBase ? 2.2 : 1.1 * (target.def ? target.def.scale : 1);
+    this.x0 = from.x; this.z0 = from.z; this.y0 = 1.55 * from.def.scale; this.tx = target.x; this.tz = target.z; this.ty = target.isBase ? (target.ty ?? 2.2) : 1.1 * (target.def ? target.def.scale : 1);
     this.x = this.x0; this.y = this.y0; this.z = this.z0; this.t = 0;
     this.total = Math.max(0.15, Math.hypot(this.tx - this.x0, this.tz - this.z0) / PROJ[kind].speed); this.done = false;
     this.rot = 0; this.dirx = 1;
