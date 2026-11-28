@@ -26,6 +26,16 @@ select,input[type=range]{background:#2a2119;color:var(--txt);border:2px solid va
 .stats{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;font-size:14px;color:var(--dim)}.stats b{display:block;color:#fff;font-size:22px}
 #end p{margin:0;color:var(--dim);letter-spacing:2px}
 
+/* ------------- modos, campaña, forja */
+.cards.lv{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.lvl{display:block;text-align:left;border:2px solid var(--line);background:linear-gradient(#352a20,#1d1611);border-radius:12px;padding:8px 10px;color:var(--txt)}
+.lvl b{display:block;color:var(--gold);font-size:13px}.lvl small{display:block;color:var(--dim);font-size:10px;margin-top:2px}.lvl .n{float:right;font-size:20px;font-weight:900;color:#fff8}.lvl .s{color:var(--gold);letter-spacing:2px;font-size:13px}
+.lvl.lock{opacity:.4}.lvl.done{border-color:#7a6a30}
+.opt.lock{opacity:.4}
+#e-reward{color:var(--dim);font-size:14px;line-height:1.7}#e-reward b{color:var(--gold)}
+.frow{display:flex;align-items:center;gap:10px;background:#0007;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:left}.frow div{flex:1}.frow b{display:block;color:var(--gold)}.frow small{color:var(--dim)}.frow .pips{color:var(--gold);letter-spacing:2px;font-size:11px}
+.frow button{min-width:78px;padding:9px;border-radius:9px;border:2px solid var(--gold2);background:linear-gradient(#f4d060,#c9962a);color:#2a1c06;font-weight:900}.frow button:disabled{opacity:.4;filter:grayscale(.6)}
+.rbtn.lock{opacity:.35}
 /* ------------- HUD */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:10}#hud>*{pointer-events:auto}
 #top{position:absolute;top:calc(var(--sat) + 6px);left:calc(var(--sal) + 8px);right:calc(var(--sar) + 8px);display:flex;gap:8px;align-items:flex-start;pointer-events:none}#top>*{pointer-events:auto}
