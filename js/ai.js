@@ -41,7 +41,7 @@ export class AI {
   useHero() {
     const g = this.g, T = this.team, H = HEROES[g.hero[T]], n = this.cfg.heroN; if (!H) return;
     let go = false;
-    if (H.kind === 'rain' || H.kind === 'fire') { const c = g.densest(g.alive[1 - T], H.r); go = !!c && c.n >= n; }
+    if (H.kind === 'rain' || H.kind === 'fire') { const c = g.densest(g.alive[1 - T], H.r); go = !!c && c.n >= n + 2; }
     else { const f = g.frontOf(T); if (f !== null) {
       const near = g.alive[T].filter(u => Math.abs(u.x - f) <= H.r);
       if (H.kind === 'buff') go = near.length >= n + 1 && g.alive[1 - T].some(e => Math.abs(e.x - f) < 18);

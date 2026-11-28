@@ -17,7 +17,7 @@ export class Economy {
   get income() { return (BASE_INCOME + 3 * this.level.income + this.unitInc) * this.incomeMul; }
   get popCap() { return BASE_POP + 10 * this.level.pop; }
   get attackBonus() { return (1 + 0.08 * this.level.attack) * this.passiveDmg; }
-  get defenseFactor() { return 1 - 0.06 * this.level.defense; }
+  get defenseFactor() { return (1 - 0.06 * this.level.defense) * (this.permDef ?? 1); }
   tick(dt) { const g = this.income * dt; this.gold += g; this.totalEarned += g; }
   add(n) { this.gold += n; this.totalEarned += n; }
   canAfford(n) { return this.gold >= n; }

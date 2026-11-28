@@ -10,12 +10,13 @@ import { Effects } from './effects.js';
 import { initAudio, setVolume, setEnabled, sfx } from './audio.js';
 import { UI } from './ui.js';
 import { HEROES } from './heroes.js';
+import { Save, LEVELS, starsFor, quickReward } from './campaign.js';
 
 const QUAL = { low: { dpr: 1, shadow: 0, parts: 90 }, mid: { dpr: 1.25, shadow: 1024, parts: 200 }, high: { dpr: 2, shadow: 2048, parts: 380 } };
 const $ = (id) => document.getElementById(id);
 const weak = (navigator.hardwareConcurrency || 4) <= 4 || (navigator.deviceMemory || 4) <= 3;
 
-let renderer, scene, camera, game, W, fx, ui, views = new Map(), selCfg = null;
+let renderer, scene, camera, game, W, fx, ui, views = new Map(), selCfg = null, report = null; const prog = new Save();
 let qual = 'mid', res = 1, perfAcc = 0, perfN = 0, perfCool = 0, running = false, paused = false, endT = 0, last = 0;
 const cam = { x: 0, dist: 17, distT: 17, auto: true, all: false };
 const D_MIN = 10, D_MAX = 66;
@@ -41,8 +42,9 @@ function init() {
   addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); applyRes(); });
   bindCamera();
   ui = new UI({
+    onNext: () => { if (selCfg && selCfg.mode === 'campaign' && selCfg.level < LEVELS.length) startBattle({ ...selCfg, level: selCfg.level + 1 }); },
     onClick: () => { initAudio(); sfx('click'); },
-    onPlay: (c) => { initAudio(); selCfg = c; startBattle(c); },
+    onPlay: (c) => { initAudio(); startBattle(c); },
     onPause: () => pause(true), onResume: () => pause(false),
     onRestart: () => startBattle(selCfg), onMenu: () => toMenu(),
     onRecruit: (id) => { if (!game || paused) return; const r = game.recruit(0, id); if (!r.ok) { ui.denied(r.reason); sfx('deny'); } else sfx('click'); },
@@ -53,7 +55,7 @@ function init() {
     onSettings: applySettings,
     onHero: () => { if (!game || paused) return; const r = game.useHero(0); if (!r.ok && r.reason !== 'sin héroe') { ui.toast(r.reason === 'enfriamiento' ? 'Recargando…' : r.reason === 'sin objetivo' ? 'No hay objetivo' : ''); sfx('deny'); } },
     onMini: (x) => { cam.auto = false; cam.all = false; const l = game ? game.map.length / 2 - 10 : 50; cam.x = Math.max(-l, Math.min(l, x)); },
-  });
+  }, prog);
   applySettings(ui.set);
   requestAnimationFrame(loop);
 }
@@ -96,11 +98,16 @@ function clearBattle() {
   if (fx) { fx.clear(); } if (W) { W.dispose(); W = null; }
 }
 function startBattle(c) {
-  clearBattle(); const map = MAPS[c.map], army0 = c.army;
+  selCfg = c; report = null; const mode = c.mode || 'quick', lv = mode === 'campaign' ? LEVELS[c.level - 1] : null;
+  const mapId = lv ? lv.map : c.map, diff = mode === 'abyss' ? 'normal' : (lv ? lv.diff : c.diff);
+  const heroId = prog.isHeroOpen(c.hero) ? c.hero : 'valeria';
+  clearBattle(); const map = MAPS[mapId], army0 = c.army ?? 0;
   const armies = [ARMIES[army0], ARMIES[1 - army0]];
   setTeamColors([armies[0].color, armies[1].color]);
   fxQ.length = 0;
-  game = new Game({ map: { length: map.length, zHalf: map.zHalf }, difficulty: c.diff, army: army0, seed: (Math.random() * 1e9) | 0, ai: {}, hero: [c.hero || 'valeria', undefined] });
+  game = new Game({ map: { length: map.length, zHalf: map.zHalf }, difficulty: diff, army: army0, seed: (Math.random() * 1e9) | 0,
+    ai: lv ? { incomeMul: lv.mul, baseHpMul: lv.baseHpMul } : (mode === 'abyss' ? { incomeMul: 0.95 } : {}), hero: [heroId, lv ? lv.aiHero : undefined],
+    unlocked: prog.unlockedUnits(), perm: prog.perm(), abyss: mode === 'abyss' });
   W = buildWorld(scene, map, armies, qual); if (!W.flags.length) wireFlags(W); W.setShadows(QUAL[qual].shadow);
   if (!fx) fx = new Effects(scene, QUAL[qual].parts); fx.setCap(QUAL[qual].parts); fx.clear();
   cam.x = game.bases[0].x + 14; cam.auto = true; cam.all = false; cam.dist = cam.distT = 17; endT = 0; paused = false; res = 1; applyRes();
@@ -144,8 +151,24 @@ function handle(ev) {
     case 'baseDown': { const c = W && W.castles[ev.team]; if (c) c.userData.fall = 0.001; fx.castleBoom(game.bases[ev.team].x); snd('boom', 0); break; }
     case 'wave': ui.toast('¡OLEADA ' + ev.n + '!'); snd('horn', 1); break;
     case 'upgrade': if (ev.team === 0) snd('upgrade', 0.1); break;
-    case 'over': endT = 2.4; snd(ev.winner === 0 ? 'victory' : 'defeat', 0); break;
+    case 'floor': {
+      ui.toast('¡PISO ' + ev.n + '!'); snd('horn', 0);
+      for (const c of [W.castles[1], W.towers[1]]) { const u = c.userData; u.fall = 0; c.position.y = u.y0 ?? c.position.y; c.rotation.z = 0; c.scale.y = 1; }
+      break;
+    }
+    case 'over': endT = 2.4; report = makeReport(); snd(ev.winner === 0 ? 'victory' : 'defeat', 0); break;
   }
+}
+/** Reparte las recompensas una sola vez, justo al terminar la batalla. */
+function makeReport() {
+  const mode = selCfg.mode || 'quick', win = game.over.winner === 0;
+  if (mode === 'campaign') {
+    const lv = LEVELS[selCfg.level - 1];
+    if (win) return { ...prog.completeLevel(lv.n, starsFor(lv, game)), mode, next: lv.n < LEVELS.length };
+    return { mode };
+  }
+  if (mode === 'abyss') return { ...prog.abyssResult(game.floor), mode };
+  return { glory: prog.addGlory(quickReward(selCfg.diff, win)), mode };
 }
 function castleAnim(dt) {
   if (!W) return;
@@ -162,7 +185,7 @@ function loop(now) {
   const raw = Math.min(0.1, (now - last) / 1000 || 0.016); last = now;
   if (running && game) {
     if (!paused) {
-      if (!game.over) game.update(raw * game.speed); else if (endT > 0) { endT -= raw; if (endT <= 0) ui.end(game); }
+      if (!game.over) game.update(raw * game.speed); else if (endT > 0) { endT -= raw; if (endT <= 0) ui.end(game, report || {}); }
       for (const ev of game.drain()) handle(ev);
       for (let i = fxQ.length - 1; i >= 0; i--) { fxQ[i].t -= raw; if (fxQ[i].t <= 0) { fxQ[i].f(); fxQ.splice(i, 1); } }
       for (const v of views.values()) v.update(raw * (game.speed), game.over, cam.x, halfView());

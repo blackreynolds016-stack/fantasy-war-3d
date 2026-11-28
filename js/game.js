@@ -1,10 +1,11 @@
 /* game.js — simulación completa de la batalla (sin gráficos). Los dibujos leen `game.units`, `game.projectiles` y `game.drain()` (eventos).
    Equipo 0 = jugador (avanza hacia +X), equipo 1 = IA (avanza hacia -X). */
 import { UNITS, ORDER, attackTimes } from './units.js';
-import { Economy, UPGRADES } from './economy.js';
+import { Economy, UPGRADES, START_GOLD } from './economy.js';
 import { computeDamage, pickTarget, inRange, baseEdge, Projectile, DETECT, BASE_HALF, TOWER } from './combat.js';
 import { AI } from './ai.js';
 import { HEROES, HERO_ORDER, HERO_START_CD, BUFF } from './heroes.js';
+import { ABYSS } from './campaign.js';
 
 export const WAVE_T = 45;
 export function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -21,15 +22,18 @@ export class Game {
     const aiMods = opts.ai || {};
     const army0 = this.army === 0 ? { baseHp: 1.10, dmg: 1.0 } : { baseHp: 1.0, dmg: 1.08 };
     const army1 = this.army === 0 ? { baseHp: 1.0, dmg: 1.08 } : { baseHp: 1.10, dmg: 1.0 };
-    this.eco = [new Economy({ passiveDmg: army0.dmg }), new Economy({ passiveDmg: army1.dmg * (aiMods.dmgMul ?? 1) })];
+    const pm = opts.perm || {};   // mejoras permanentes de la Forja (solo el jugador)
+    this.eco = [new Economy({ passiveDmg: army0.dmg * (1 + 0.03 * (pm.dmg || 0)), gold: START_GOLD + 25 * (pm.gold || 0) }), new Economy({ passiveDmg: army1.dmg * (aiMods.dmgMul ?? 1) })];
+    this.eco[0].permDef = 1 - 0.03 * (pm.def || 0); this.cdMul = 1 - 0.04 * (pm.cd || 0);
+    this.abyss = !!opts.abyss; this.floor = 1;
     const bhp = 6000;
     this.bases = [
-      { isBase: true, team: 0, x: -half, z: 0, hp: bhp * army0.baseHp, maxHp: bhp * army0.baseHp, dead: false, r: BASE_HALF },
+      { isBase: true, team: 0, x: -half, z: 0, hp: bhp * army0.baseHp * (1 + 0.06 * (pm.hp || 0)), maxHp: bhp * army0.baseHp * (1 + 0.06 * (pm.hp || 0)), dead: false, r: BASE_HALF },
       { isBase: true, team: 1, x: half, z: 0, hp: bhp * army1.baseHp * (aiMods.baseHpMul ?? 1), maxHp: bhp * army1.baseHp * (aiMods.baseHpMul ?? 1), dead: false, r: BASE_HALF },
     ];
     this.towers = [0, 1].map(team => ({ isBase: true, isTower: true, team, x: this.bases[team].x + (team === 0 ? 1 : -1) * TOWER.dist, z: 0, hp: TOWER.hp, maxHp: TOWER.hp, dead: false, r: TOWER.r, ty: 3.2, cd: 1.2,
       def: { scale: 4.5, dmg: TOWER.dmg, dtype: 'perforante', siege: 1 } }));
-    this.hero = opts.hero ? [opts.hero[0], opts.hero[1] ?? HERO_ORDER[Math.floor(this.rand() * HERO_ORDER.length)]] : [null, null]; this.heroCd = [HERO_START_CD, HERO_START_CD];
+    this.hero = opts.hero ? [opts.hero[0], opts.hero[1] === false ? null : (opts.hero[1] ?? HERO_ORDER[Math.floor(this.rand() * HERO_ORDER.length)])] : [null, null]; this.heroCd = [HERO_START_CD, HERO_START_CD];
     this.train = [{}, {}]; for (const t of [0, 1]) for (const id of ORDER) this.train[t][id] = { queue: 0, t: 0 };
     this.stats = [{ kills: 0, lost: 0, spawned: 0, damage: 0 }, { kills: 0, lost: 0, spawned: 0, damage: 0 }];
     this.aiHpMul = aiMods.hpMul ?? 1;
@@ -139,7 +143,7 @@ export class Game {
     const H = HEROES[id], eco = this.eco[team], foes = this.alive[1 - team];
     if (H.kind === 'rain' || H.kind === 'fire') {
       const c = this.densest(foes, H.r); if (!c) return { ok: false, reason: 'sin objetivo' };
-      const spots = H.kind === 'rain' ? [c.x] : [c.x, c.x - 3, c.x + 3];
+      const spots = H.kind === 'rain' ? [c.x] : [c.x, c.x - 5, c.x + 5];
       this.emit({ t: 'skill', team, id, kind: H.kind, x: c.x, r: H.r, spots });
       for (const sx of spots) for (const e of foes) if (e.state !== 'dead' && Math.abs(e.x - sx) <= H.r + e.r) this.hitUnit({ team }, e, H.power * eco.attackBonus * this.eco[1 - team].defenseFactor, false, team);
     } else if (H.kind === 'buff') {
@@ -153,7 +157,7 @@ export class Game {
       this.emit({ t: 'skill', team, id, kind: 'heal', x: f, r: H.r });
       for (const u of this.alive[team]) if (Math.abs(u.x - f) <= H.r && u.hp < u.maxHp) { const b = u.hp; u.hp = Math.min(u.maxHp, u.hp + u.maxHp * H.power); this.emit({ t: 'heal', u, amt: u.hp - b }); }
     }
-    this.heroCd[team] = H.cd; return { ok: true };
+    this.heroCd[team] = H.cd * (team === 0 ? this.cdMul : 1); return { ok: true };
   }
   /** El sacerdote cura al aliado más herido a su alcance; si no hay heridos, acompaña a la línea aliada desde atrás. */
   updateHealer(u, dt) {
@@ -256,6 +260,16 @@ export class Game {
   }
   checkEnd() {
     if (this.over) return;
-    for (const b of this.bases) if (b.dead) { this.over = { winner: 1 - b.team, time: this.time }; this.emit({ t: 'over', winner: 1 - b.team }); }
+    for (const b of this.bases) if (b.dead) {
+      if (this.abyss && b.team === 1) { this.nextFloor(); continue; }
+      this.over = { winner: 1 - b.team, time: this.time, floor: this.floor }; this.emit({ t: 'over', winner: 1 - b.team }); }
+  }
+  /** Abismo: al caer el castillo enemigo se alza otro más fuerte; tú conservas tu ejército y recibes un bono. */
+  nextFloor() {
+    this.floor++; const k = this.floor - 1, b = this.bases[1], t = this.towers[1];
+    b.maxHp = 6000 * (1 + ABYSS.baseHp * k); b.hp = b.maxHp; b.dead = false; t.maxHp = TOWER.hp * (1 + ABYSS.towerHp * k); t.hp = t.maxHp; t.dead = false; t.cd = 2;
+    this.eco[0].add(ABYSS.gold + ABYSS.goldPerFloor * k); const m = this.bases[0]; m.hp = Math.min(m.maxHp, m.hp + m.maxHp * 0.25);
+    this.ai.baseIncomeMul *= 1 + ABYSS.income; this.eco[1].incomeMul = this.ai.baseIncomeMul * (1 + this.ai.cfg.waveGrow * (this.wave - 1));
+    this.emit({ t: 'floor', n: this.floor });
   }
 }

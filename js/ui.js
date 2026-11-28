@@ -3,16 +3,17 @@ import { UNITS, ORDER, DAMAGE_MULT, counters } from './units.js';
 import { UPGRADES } from './economy.js';
 import { MAPS, MAP_ORDER, ARMIES } from './maps.js';
 import { HEROES, HERO_ORDER } from './heroes.js';
+import { LEVELS, FORGE, UNIT_UNLOCK, HERO_UNLOCK } from './campaign.js';
 
 const $ = (id) => document.getElementById(id);
 const DIFFS = [['facil', 'Fácil', 'Enemigo lento y torpe'], ['normal', 'Normal', 'Pelea pareja'], ['dificil', 'Difícil', 'Enemigo rápido y listo']];
 const ARM = { ligera: 'LIG', pesada: 'PES', grande: 'GRA' }, DT = { filo: 'filo', perforante: 'perforante', contundente: 'contundente', magico: 'mágico' };
-const REASON = { monedas: 'Faltan monedas', poblacion: 'Población llena', cola: 'Cola llena (máx. 4)', bloqueada: 'Bloqueada', fin: '' };
+const REASON = { monedas: 'Faltan monedas', poblacion: 'Población llena', cola: 'Cola llena (máx. 4)', bloqueada: 'Se desbloquea en la campaña', fin: '' };
 const fmtTime = (s) => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 
 export class UI {
-  constructor(h) {
-    this.h = h; this.game = null; this.acc = 0; this.btns = {}; this.ups = {}; this.toastT = 0; this.miniT = 0; this.longFlag = false;
+  constructor(h, prog) {
+    this.h = h; this.prog = prog; this.mode = 'quick'; this.game = null; this.acc = 0; this.btns = {}; this.ups = {}; this.toastT = 0; this.miniT = 0; this.longFlag = false;
     let sel = {}; try { sel = JSON.parse(localStorage.getItem('fw-sel') || '{}'); } catch (e) {}
     this.sel = { diff: 'normal', army: 0, map: 'valle', hero: 'valeria', ...sel }; if (!HEROES[this.sel.hero]) this.sel.hero = 'valeria';
     let set = {}; try { set = JSON.parse(localStorage.getItem('fw-set') || '{}'); } catch (e) {}
@@ -26,17 +27,60 @@ export class UI {
 
   opts(box, list, key) {
     box.innerHTML = '';
-    for (const [v, name, sub] of list) {
-      const b = document.createElement('button'); b.className = 'opt' + (this.sel[key] === v ? ' on' : ''); b.innerHTML = name + (sub ? '<small>' + sub + '</small>' : '');
-      b.onclick = () => { this.sel[key] = v; this.save(); for (const o of box.children) o.classList.remove('on'); b.classList.add('on'); this.h.onClick && this.h.onClick(); };
+    for (const [v, name, sub, locked] of list) {
+      const b = document.createElement('button'); b.className = 'opt' + (this.sel[key] === v ? ' on' : '') + (locked ? ' lock' : ''); b.innerHTML = (locked ? '🔒 ' : '') + name + (sub ? '<small>' + sub + '</small>' : '');
+      b.onclick = () => { if (locked) { this.toast(sub); return; } this.sel[key] = v; this.save(); for (const o of box.children) o.classList.remove('on'); b.classList.add('on'); this.h.onClick && this.h.onClick(); };
       box.appendChild(b);
     }
   }
   buildSetup() {
     this.opts($('s-diff'), DIFFS, 'diff');
     this.opts($('s-army'), ARMIES.map(a => [a.id, a.name, a.perk]), 'army');
-    this.opts($('s-hero'), HERO_ORDER.map(h => [h, HEROES[h].name, HEROES[h].skill]), 'hero');
+    this.heroOpts($('s-hero'));
     this.opts($('s-map'), MAP_ORDER.map(m => [m, MAPS[m].name, '']), 'map');
+  }
+  /** Héroes: los bloqueados se ven pero no se pueden elegir. */
+  heroOpts(box) {
+    if (!this.prog.isHeroOpen(this.sel.hero)) this.sel.hero = 'valeria';
+    this.opts(box, HERO_ORDER.map(h => { const lk = !this.prog.isHeroOpen(h); return [h, HEROES[h].name, lk ? 'Gana el nivel ' + HERO_UNLOCK[h] : HEROES[h].skill, lk]; }), 'hero');
+  }
+  openModes() {
+    $('md-info').textContent = 'Gloria: ' + this.prog.glory + '  ·  Estrellas: ' + this.prog.totalStars() + '/' + LEVELS.length * 3;
+    $('md-abyss').textContent = 'ABISMO' + (this.prog.abyssBest() ? ' · récord piso ' + this.prog.abyssBest() : '');
+    this.show('modes');
+  }
+  openSetup(mode) {
+    this.mode = mode; $('s-title').textContent = mode === 'abyss' ? 'ABISMO: ¿hasta qué piso llegas?' : 'BATALLA RÁPIDA';
+    $('s-diff-g').classList.toggle('hidden', mode === 'abyss'); this.heroOpts($('s-hero')); this.show('setup');
+  }
+  openCampaign() {
+    const box = $('c-levels'); box.innerHTML = ''; $('c-info').textContent = 'Estrellas: ' + this.prog.totalStars() + '/' + LEVELS.length * 3 + '  ·  Gloria: ' + this.prog.glory;
+    for (const lv of LEVELS) {
+      const open = this.prog.levelOpen(lv.n), st = this.prog.stars(lv.n), b = document.createElement('button'); b.className = 'lvl' + (open ? '' : ' lock') + (st ? ' done' : '');
+      b.innerHTML = `<span class="n">${lv.n}</span><b>${lv.name}</b><small>${MAPS[lv.map].name} · ${DIFFS.find(d => d[0] === lv.diff)[1]}</small><span class="s">${open ? '★'.repeat(st) + '☆'.repeat(3 - st) : '🔒'}</span>`;
+      b.onclick = () => { this.h.onClick && this.h.onClick(); if (!open) { this.toast('Gana el nivel ' + (lv.n - 1)); return; } this.openBrief(lv.n); };
+      box.appendChild(b);
+    }
+    this.show('campaign');
+  }
+  openBrief(n) {
+    const lv = LEVELS[n - 1]; this.briefN = n; $('b-title').textContent = 'NIVEL ' + n + ': ' + lv.name.toUpperCase(); $('b-desc').textContent = lv.desc;
+    const unl = Object.keys(UNIT_UNLOCK).filter(u => UNIT_UNLOCK[u] === n).map(u => UNITS[u].name), hu = Object.keys(HERO_UNLOCK).filter(h => HERO_UNLOCK[h] === n).map(h => HEROES[h].name);
+    const first = !this.prog.cleared(n);
+    $('b-info').innerHTML = `<div><b>${MAPS[lv.map].name}</b>Mapa</div><div><b>${DIFFS.find(d => d[0] === lv.diff)[1]}</b>Dificultad</div><div><b>${lv.aiHero === false ? 'Ninguno' : lv.aiHero ? HEROES[lv.aiHero].name : 'Al azar'}</b>Héroe enemigo</div><div><b>${first ? 30 + 12 * n : 10 + 3 * n}</b>Gloria</div>`
+      + (first && (unl.length || hu.length) ? `<div><b>${[...unl, ...hu].join(', ')}</b>Desbloqueas</div>` : '');
+    this.heroOpts($('b-hero')); this.opts($('b-army'), ARMIES.map(a => [a.id, a.name, a.perk]), 'army'); this.show('brief');
+  }
+  openForge() {
+    $('f-glory').textContent = this.prog.glory; const box = $('f-list'); box.innerHTML = '';
+    for (const k of Object.keys(FORGE)) {
+      const f = FORGE[k], lv = this.prog.perm()[k], c = this.prog.forgeCost(k), r = document.createElement('div'); r.className = 'frow';
+      r.innerHTML = `<div><b>${f.name}</b><small>${f.desc}</small><div class="pips">${'■'.repeat(lv)}${'□'.repeat(f.max - lv)}</div></div><button>${c == null ? 'MÁX' : c}</button>`;
+      const bt = r.querySelector('button'); bt.disabled = c == null || this.prog.glory < c;
+      bt.onclick = () => { if (this.prog.buy(k)) { this.h.onClick && this.h.onClick(); this.openForge(); } };
+      box.appendChild(r);
+    }
+    this.show('forge');
   }
   buildCards() {
     const box = $('u-cards'); box.innerHTML = '';
@@ -76,8 +120,11 @@ export class UI {
   }
   bind() {
     const go = (id, f) => { $(id).onclick = () => { this.h.onClick && this.h.onClick(); f(); }; };
-    go('m-play', () => this.show('setup')); go('m-units', () => this.show('units')); go('m-settings', () => { this.from = 'menu'; this.show('settings'); });
-    go('s-back', () => this.show('menu')); go('s-go', () => this.h.onPlay({ ...this.sel })); go('u-back', () => this.show('menu'));
+    go('m-play', () => this.openModes()); go('m-units', () => this.show('units')); go('m-settings', () => { this.from = 'menu'; this.show('settings'); });
+    go('md-back', () => this.show('menu')); go('md-quick', () => this.openSetup('quick')); go('md-abyss', () => this.openSetup('abyss')); go('md-camp', () => this.openCampaign()); go('md-forge', () => this.openForge());
+    go('c-back', () => this.openModes()); go('f-back', () => this.openModes()); go('b-back', () => this.openCampaign());
+    go('s-back', () => this.openModes()); go('s-go', () => this.h.onPlay({ ...this.sel, mode: this.mode })); go('b-go', () => this.h.onPlay({ mode: 'campaign', level: this.briefN, army: this.sel.army, hero: this.sel.hero }));
+    go('e-next', () => this.h.onNext()); go('u-back', () => this.show('menu'));
     go('o-back', () => { this.show(this.from === 'pause' ? 'pause' : 'menu'); });
     go('h-pause', () => this.h.onPause()); go('p-resume', () => this.h.onResume()); go('p-restart', () => this.h.onRestart());
     go('p-settings', () => { this.from = 'pause'; this.show('settings'); }); go('p-menu', () => this.h.onMenu());
@@ -142,10 +189,10 @@ export class UI {
       hb.querySelector('.hi').textContent = H.name[0]; hb.querySelector('.hi').style.background = H.color; hb.querySelector('.hn').textContent = H.skill;
       hb.querySelector('.hc').textContent = cd <= 0 ? 'LISTA' : Math.ceil(cd) + ' s'; hb.style.setProperty('--p', 1 - cd / H.cd);
     }
-    $('h-wave').textContent = 'OLEADA ' + g.wave; $('h-time').textContent = fmtTime(g.time);
+    $('h-wave').textContent = (g.abyss ? 'PISO ' + g.floor + ' · ' : '') + 'OLEADA ' + g.wave; $('h-time').textContent = fmtTime(g.time);
     for (const id of ORDER) {
-      const w = this.btns[id], tr = g.train[0][id], why = g.canRecruit(0, id);
-      w.b.classList.toggle('no', !!why);
+      const w = this.btns[id], tr = g.train[0][id], why = g.canRecruit(0, id), lock = !g.unlocked.includes(id);
+      w.b.classList.toggle('no', !!why); w.b.classList.toggle('lock', lock); w.cs.textContent = lock ? '🔒' : UNITS[id].cost;
       w.q.style.display = tr.queue ? '' : 'none'; w.q.textContent = tr.queue;
       w.b.style.setProperty('--p', tr.queue ? Math.min(1, tr.t / UNITS[id].recruit) : 0);
     }
@@ -155,10 +202,20 @@ export class UI {
       w.b.classList.toggle('no', max || e.gold < u.costs[lv]);
     }
   }
-  end(g) {
-    const win = g.over.winner === 0, t = $('e-title'); t.textContent = win ? 'VICTORIA' : 'DERROTA'; t.className = win ? '' : 'lose';
-    $('e-sub').textContent = win ? 'La base enemiga ha caído' : 'Tu base ha sido destruida';
+  end(g, rep = {}) {
+    const win = g.over.winner === 0, t = $('e-title'), ab = g.abyss;
+    t.textContent = ab ? 'PISO ' + g.floor : (win ? 'VICTORIA' : 'DERROTA'); t.className = ab || win ? '' : 'lose';
+    $('e-sub').textContent = ab ? 'Tu castillo cayó en el piso ' + g.floor : (win ? 'La base enemiga ha caído' : 'Tu base ha sido destruida');
     const s = g.stats[0]; $('e-stats').innerHTML = `<div><b>${fmtTime(g.time)}</b>Duración</div><div><b>${s.kills}</b>Bajas</div><div><b>${s.lost}</b>Pérdidas</div><div><b>${s.spawned}</b>Reclutados</div><div><b>${g.wave}</b>Oleada</div>`;
+    const L = [];
+    if (rep.stars) L.push('<b>' + '★'.repeat(rep.stars) + '☆'.repeat(3 - rep.stars) + '</b> estrellas');
+    if (rep.glory) L.push('Gloria ganada: <b>+' + rep.glory + '</b> (total ' + this.prog.glory + ')');
+    if (rep.best) L.push('<b>¡Nuevo récord del Abismo: piso ' + rep.floor + '!</b>');
+    if (rep.newUnits && rep.newUnits.length) L.push('Tropas desbloqueadas: <b>' + rep.newUnits.map(u => UNITS[u].name).join(', ') + '</b>');
+    if (rep.newHeroes && rep.newHeroes.length) L.push('Héroes desbloqueados: <b>' + rep.newHeroes.map(h => HEROES[h].name).join(', ') + '</b>');
+    if (rep.mode === 'campaign' && !win) L.push('Consejo: mejora tu economía y usa tu héroe en el momento justo.');
+    $('e-reward').innerHTML = L.join('<br>');
+    $('e-next').classList.toggle('hidden', !rep.next); $('e-again').textContent = rep.mode === 'campaign' ? (win ? 'REPETIR NIVEL' : 'REINTENTAR') : 'OTRA BATALLA';
     this.show('end'); this.hud(false);
   }
 }
