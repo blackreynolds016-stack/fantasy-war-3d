@@ -2,6 +2,7 @@
 import { UNITS, ORDER, DAMAGE_MULT, counters } from './units.js';
 import { UPGRADES } from './economy.js';
 import { MAPS, MAP_ORDER, ARMIES } from './maps.js';
+import { HEROES, HERO_ORDER } from './heroes.js';
 
 const $ = (id) => document.getElementById(id);
 const DIFFS = [['facil', 'Fácil', 'Enemigo lento y torpe'], ['normal', 'Normal', 'Pelea pareja'], ['dificil', 'Difícil', 'Enemigo rápido y listo']];
@@ -13,7 +14,7 @@ export class UI {
   constructor(h) {
     this.h = h; this.game = null; this.acc = 0; this.btns = {}; this.ups = {}; this.toastT = 0; this.miniT = 0; this.longFlag = false;
     let sel = {}; try { sel = JSON.parse(localStorage.getItem('fw-sel') || '{}'); } catch (e) {}
-    this.sel = { diff: 'normal', army: 0, map: 'valle', ...sel };
+    this.sel = { diff: 'normal', army: 0, map: 'valle', hero: 'valeria', ...sel }; if (!HEROES[this.sel.hero]) this.sel.hero = 'valeria';
     let set = {}; try { set = JSON.parse(localStorage.getItem('fw-set') || '{}'); } catch (e) {}
     this.set = { quality: 'auto', sound: 1, vol: 70, fps: 0, ...set };
     this.buildSetup(); this.buildCards(); this.buildBar(); this.buildUpgrades(); this.bind();
@@ -34,6 +35,7 @@ export class UI {
   buildSetup() {
     this.opts($('s-diff'), DIFFS, 'diff');
     this.opts($('s-army'), ARMIES.map(a => [a.id, a.name, a.perk]), 'army');
+    this.opts($('s-hero'), HERO_ORDER.map(h => [h, HEROES[h].name, HEROES[h].skill]), 'hero');
     this.opts($('s-map'), MAP_ORDER.map(m => [m, MAPS[m].name, '']), 'map');
   }
   buildCards() {
@@ -42,6 +44,11 @@ export class UI {
       const d = UNITS[id], c = document.createElement('div'); c.className = 'card';
       c.innerHTML = `<div class="ic" style="background:${d.color}">${d.name[0]}</div><div><b>${d.name}</b><small>${d.role}</small><p>${d.desc}</p>
         <div class="stat"><span>Vida <b>${d.hp}</b></span><span>Daño <b>${d.dmg}</b></span><span>Defensa <b>${d.def}</b></span><span>Veloc. <b>${d.speed}</b></span><span>Alcance <b>${d.range}</b></span><span>Precio <b>${d.cost}</b></span><span>Pob. <b>${d.pop}</b></span></div></div>`;
+      box.appendChild(c);
+    }
+    for (const id of HERO_ORDER) {
+      const h = HEROES[id], c = document.createElement('div'); c.className = 'card hero2';
+      c.innerHTML = `<div class="ic" style="background:${h.color}">${h.name[0]}</div><div><b>${h.name} <small>${h.title}</small></b><small>Héroe · recarga ${h.cd} s</small><p><b style="display:inline;color:#fff">${h.skill}.</b> ${h.desc}</p></div>`;
       box.appendChild(c);
     }
   }
@@ -75,7 +82,7 @@ export class UI {
     go('h-pause', () => this.h.onPause()); go('p-resume', () => this.h.onResume()); go('p-restart', () => this.h.onRestart());
     go('p-settings', () => { this.from = 'pause'; this.show('settings'); }); go('p-menu', () => this.h.onMenu());
     go('e-again', () => this.h.onRestart()); go('e-menu', () => this.h.onMenu());
-    go('h-all', () => this.h.onAll()); go('h-speed', () => this.h.onSpeed()); go('h-center', () => this.h.onCenter());
+    go('h-all', () => this.h.onAll()); go('h-hero', () => this.h.onHero()); go('h-speed', () => this.h.onSpeed()); go('h-center', () => this.h.onCenter());
     go('h-up', () => { $('upgrades').classList.toggle('hidden'); $('h-up').classList.toggle('on'); });
     const mc = $('mini'); let drag = false; const mv = (e) => { const r = mc.getBoundingClientRect(), f = (e.clientX - r.left) / r.width; if (this.game) this.h.onMini(((f * mc.width - 6) / (mc.width - 12) - 0.5) * this.game.map.length); };
     mc.onpointerdown = (e) => { drag = true; mc.setPointerCapture(e.pointerId); mv(e); }; mc.onpointermove = (e) => { if (drag) mv(e); }; mc.onpointerup = mc.onpointercancel = () => { drag = false; };
@@ -85,7 +92,7 @@ export class UI {
     q.onchange = s.onchange = v.oninput = f.onchange = ch;
     addEventListener('keydown', (e) => {
       if (!this.game || e.repeat) return; const i = '1234567890-='.indexOf(e.key);
-      if (i >= 0) this.h.onRecruit(ORDER[i]); else if (e.key === 'Escape' || e.key === 'p') this.h.onPause();
+      if (i >= 0) this.h.onRecruit(ORDER[i]); else if (e.key === 'q' || e.key === 'Q') this.h.onHero(); else if (e.key === 'Escape' || e.key === 'p') this.h.onPause();
     });
   }
   /** Ficha de una tropa: estadísticas, a qué armaduras daña más, quién la vence y a quién vence. */
@@ -129,6 +136,12 @@ export class UI {
     $('h-pop').textContent = e.popUsed + '/' + e.popCap;
     $('h-b0').style.width = (100 * g.bases[0].hp / g.bases[0].maxHp) + '%'; $('h-b1').style.width = (100 * g.bases[1].hp / g.bases[1].maxHp) + '%';
     $('h-t0').style.width = (100 * g.towers[0].hp / g.towers[0].maxHp) + '%'; $('h-t1').style.width = (100 * g.towers[1].hp / g.towers[1].maxHp) + '%';
+    const hb = $('h-hero'), hid = g.hero[0];
+    if (!hid) hb.classList.add('hidden'); else {
+      const H = HEROES[hid], cd = g.heroCd[0]; hb.classList.remove('hidden'); hb.classList.toggle('rdy', cd <= 0); hb.classList.toggle('cd', cd > 0);
+      hb.querySelector('.hi').textContent = H.name[0]; hb.querySelector('.hi').style.background = H.color; hb.querySelector('.hn').textContent = H.skill;
+      hb.querySelector('.hc').textContent = cd <= 0 ? 'LISTA' : Math.ceil(cd) + ' s'; hb.style.setProperty('--p', 1 - cd / H.cd);
+    }
     $('h-wave').textContent = 'OLEADA ' + g.wave; $('h-time').textContent = fmtTime(g.time);
     for (const id of ORDER) {
       const w = this.btns[id], tr = g.train[0][id], why = g.canRecruit(0, id);

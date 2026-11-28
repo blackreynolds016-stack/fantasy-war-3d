@@ -1,11 +1,12 @@
 /* ai.js — el ejército enemigo. Gana monedas, elige tropas que contrarrestan a las del jugador, compra mejoras y manda oleadas. Lógica pura. */
 import { UNITS, ORDER, matchup } from './units.js';
 import { UPGRADES } from './economy.js';
+import { HEROES } from './heroes.js';
 
 export const DIFFICULTY = {
-  facil:   { name: 'Fácil',   incomeMul: 0.80, think: 3.2, err: 0.40, upgrade: 0.25, waveGrow: 0.010, bonusPerWave: 10, tierShift: 1 },
-  normal:  { name: 'Normal',  incomeMul: 1.10, think: 1.6, err: 0.12, upgrade: 0.60, waveGrow: 0.025, bonusPerWave: 25, tierShift: 0 },
-  dificil: { name: 'Difícil', incomeMul: 1.48, think: 1.0, err: 0.02, upgrade: 0.95, waveGrow: 0.045, bonusPerWave: 45, tierShift: -1 },
+  facil:   { name: 'Fácil',   incomeMul: 0.80, think: 3.2, err: 0.40, upgrade: 0.25, waveGrow: 0.010, bonusPerWave: 10, tierShift: 1, hero: 0.35, heroN: 5 },
+  normal:  { name: 'Normal',  incomeMul: 1.10, think: 1.6, err: 0.12, upgrade: 0.60, waveGrow: 0.025, bonusPerWave: 25, tierShift: 0, hero: 0.7, heroN: 4 },
+  dificil: { name: 'Difícil', incomeMul: 1.48, think: 1.0, err: 0.02, upgrade: 0.95, waveGrow: 0.045, bonusPerWave: 45, tierShift: -1, hero: 1.0, heroN: 3 },
 };
 
 export class AI {
@@ -23,6 +24,8 @@ export class AI {
     }
     this.t -= dt; if (this.t > 0) return;
     this.t = this.cfg.think * (0.8 + g.rand() * 0.5) * (this.burst > 0 ? 0.45 : 1); if (this.burst > 0) this.burst--;
+    // 0) héroe: usa su habilidad cuando rinde (grupo enemigo denso, buen frente o aliados heridos)
+    if (g.heroReady(this.team) && g.rand() < this.cfg.hero) this.useHero();
     // 1) mejoras
     if (g.rand() < this.cfg.upgrade * 0.25 && g.time > 25) {
       for (const k of this.upgradeOrder) { const c = eco.upgradeCost(k); if (c != null && eco.gold >= c + 60 && (k !== 'pop' || eco.popFree() < 6)) { g.upgrade(this.team, k); return; } }
@@ -34,6 +37,17 @@ export class AI {
     if (why === 'monedas') {                      // ahorra para la que quiere, pero no más de ~10 s: luego compra algo más barato
       this.saving += this.cfg.think; if (this.saving > 10) { const cheap = this.cheapest(); if (cheap && !g.canRecruit(this.team, cheap)) { g.recruit(this.team, cheap); this.saving = 0; } }
     }
+  }
+  useHero() {
+    const g = this.g, T = this.team, H = HEROES[g.hero[T]], n = this.cfg.heroN; if (!H) return;
+    let go = false;
+    if (H.kind === 'rain' || H.kind === 'fire') { const c = g.densest(g.alive[1 - T], H.r); go = !!c && c.n >= n; }
+    else { const f = g.frontOf(T); if (f !== null) {
+      const near = g.alive[T].filter(u => Math.abs(u.x - f) <= H.r);
+      if (H.kind === 'buff') go = near.length >= n + 1 && g.alive[1 - T].some(e => Math.abs(e.x - f) < 18);
+      else go = near.filter(u => u.hp < u.maxHp * 0.7).length >= 3;
+    } }
+    if (go) g.useHero(T);
   }
   available() {
     const w = this.g.wave + this.cfg.tierShift * -1, lim = this.g.time < 30 ? 1 : w;   // tropas pesadas más tarde

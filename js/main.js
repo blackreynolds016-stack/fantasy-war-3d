@@ -9,6 +9,7 @@ import { buildWorld, wireFlags } from './world.js';
 import { Effects } from './effects.js';
 import { initAudio, setVolume, setEnabled, sfx } from './audio.js';
 import { UI } from './ui.js';
+import { HEROES } from './heroes.js';
 
 const QUAL = { low: { dpr: 1, shadow: 0, parts: 90 }, mid: { dpr: 1.25, shadow: 1024, parts: 200 }, high: { dpr: 2, shadow: 2048, parts: 380 } };
 const $ = (id) => document.getElementById(id);
@@ -50,6 +51,7 @@ function init() {
     onCenter: () => { cam.auto = true; cam.all = false; cam.distT = 17; },
     onAll: () => { cam.all = !cam.all; cam.distT = cam.all ? 64 : 17; cam.auto = !cam.all; $('h-all').classList.toggle('on', cam.all); },
     onSettings: applySettings,
+    onHero: () => { if (!game || paused) return; const r = game.useHero(0); if (!r.ok && r.reason !== 'sin héroe') { ui.toast(r.reason === 'enfriamiento' ? 'Recargando…' : r.reason === 'sin objetivo' ? 'No hay objetivo' : ''); sfx('deny'); } },
     onMini: (x) => { cam.auto = false; cam.all = false; const l = game ? game.map.length / 2 - 10 : 50; cam.x = Math.max(-l, Math.min(l, x)); },
   });
   applySettings(ui.set);
@@ -97,7 +99,8 @@ function startBattle(c) {
   clearBattle(); const map = MAPS[c.map], army0 = c.army;
   const armies = [ARMIES[army0], ARMIES[1 - army0]];
   setTeamColors([armies[0].color, armies[1].color]);
-  game = new Game({ map: { length: map.length, zHalf: map.zHalf }, difficulty: c.diff, army: army0, seed: (Math.random() * 1e9) | 0, ai: {} });
+  fxQ.length = 0;
+  game = new Game({ map: { length: map.length, zHalf: map.zHalf }, difficulty: c.diff, army: army0, seed: (Math.random() * 1e9) | 0, ai: {}, hero: [c.hero || 'valeria', undefined] });
   W = buildWorld(scene, map, armies, qual); if (!W.flags.length) wireFlags(W); W.setShadows(QUAL[qual].shadow);
   if (!fx) fx = new Effects(scene, QUAL[qual].parts); fx.setCap(QUAL[qual].parts); fx.clear();
   cam.x = game.bases[0].x + 14; cam.auto = true; cam.all = false; cam.dist = cam.distT = 17; endT = 0; paused = false; res = 1; applyRes();
@@ -109,6 +112,7 @@ function pause(on) {
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden && running && game && !game.over && !paused) pause(true); });
 
+const fxQ = [];   // efectos retardados de habilidades
 let sfxT = {};
 function snd(name, gap = 0.08) { const t = performance.now() / 1000; if ((sfxT[name] || 0) + gap > t) return; sfxT[name] = t; sfx(name); }
 const near = (x) => Math.abs(x - cam.x) < halfView();
@@ -124,6 +128,14 @@ function handle(ev) {
     }
     case 'proj': if (near(ev.p.x0 ?? cam.x)) snd(ev.p.kind === 'fire' ? 'magic' : 'arrow', 0.1); break;
     case 'death': if (near(ev.u.x)) snd('death', 0.1); break;
+    case 'skill': {
+      const H = HEROES[ev.id]; ui.toast(ev.team === 0 ? H.skill + '!' : 'Enemigo: ' + H.skill);
+      if (ev.kind === 'rain') { snd('arrow', 0); for (let i = 0; i < 16; i++) fxQ.push({ t: i * 0.05, f: () => { const x = ev.x + (Math.random() - .5) * 2 * ev.r, z = (Math.random() - .5) * 6; fx.slash(x, 1.2, z, 1, false); fx.dust(x, z, 2); } }); }
+      else if (ev.kind === 'fire') ev.spots.forEach((sx, i) => fxQ.push({ t: i * 0.3, f: () => { fx.explosion(sx, (Math.random() - .5) * 3, ev.r, 'fire'); snd('boom', 0); } }));
+      else if (ev.kind === 'buff') snd('horn', 0); else snd('upgrade', 0);
+      break;
+    }
+    case 'buffed': if (near(ev.u.x)) fx.burst(ev.u.x, 1.2, ev.u.z, 5, { color: 0xffd070, speed: 1.4, life: .6, size: .22, gravity: -2 }); break;
     case 'heal': if (near(ev.u.x)) { fx.burst(ev.u.x, 1.4, ev.u.z, 7, { color: 0x7bff9a, speed: 1.2, life: .7, size: .22, gravity: -2, up: 2 }); snd('upgrade', 0.3); } break;
     case 'coin': if (ev.team === 0) { fx.coin(ev.x, 1.6, ev.z); snd('coin', 0.15); } break;
     case 'explode': fx.explosion(ev.x, ev.z, ev.r, ev.kind); if (near(ev.x)) snd(ev.kind === 'fire' ? 'boom' : 'heavy', 0.1); break;
@@ -152,6 +164,7 @@ function loop(now) {
     if (!paused) {
       if (!game.over) game.update(raw * game.speed); else if (endT > 0) { endT -= raw; if (endT <= 0) ui.end(game); }
       for (const ev of game.drain()) handle(ev);
+      for (let i = fxQ.length - 1; i >= 0; i--) { fxQ[i].t -= raw; if (fxQ[i].t <= 0) { fxQ[i].f(); fxQ.splice(i, 1); } }
       for (const v of views.values()) v.update(raw * (game.speed), game.over, cam.x, halfView());
       fx.syncProjectiles(game.projectiles); fx.update(raw, camera); fx.bars(game.units, cam.x, halfView());
       W.update(raw, cam.x); castleAnim(raw); ui.tick(raw); ui.drawMini(cam.x, halfView()); perfTick(raw);
