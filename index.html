@@ -22,10 +22,36 @@
     <button class="btn" id="m-settings">AJUSTES</button>
   </section>
 
+  <section id="modes" class="screen">
+    <h2>ELIGE UN MODO</h2><p class="tag" id="md-info"></p>
+    <button class="btn big gold" id="md-camp">CAMPAÑA</button>
+    <button class="btn big" id="md-quick">BATALLA RÁPIDA</button>
+    <button class="btn big" id="md-abyss">ABISMO</button>
+    <button class="btn" id="md-forge">FORJA</button>
+    <button class="btn" id="md-back">VOLVER</button>
+  </section>
+
+  <section id="campaign" class="screen scroll">
+    <h2>CAMPAÑA</h2><p class="tag" id="c-info"></p><div class="cards lv" id="c-levels"></div>
+    <div class="row"><button class="btn" id="c-back">VOLVER</button></div>
+  </section>
+
+  <section id="brief" class="screen">
+    <h2 id="b-title">NIVEL</h2><p class="tag" id="b-desc"></p><div class="stats" id="b-info"></div>
+    <div class="grid"><div class="group"><h3>Héroe</h3><div class="opts" id="b-hero"></div></div><div class="group"><h3>Ejército</h3><div class="opts" id="b-army"></div></div></div>
+    <div class="row"><button class="btn" id="b-back">VOLVER</button><button class="btn big gold" id="b-go">¡A COMBATIR!</button></div>
+  </section>
+
+  <section id="forge" class="screen scroll">
+    <h2>FORJA</h2><p class="tag">Gastas Gloria en mejoras permanentes para tu ejército. Las ganas jugando.</p><div class="stats"><div><b id="f-glory">0</b>Gloria</div></div>
+    <div class="cards" id="f-list"></div>
+    <div class="row"><button class="btn" id="f-back">VOLVER</button></div>
+  </section>
+
   <section id="setup" class="screen">
-    <h2>PREPARA LA BATALLA</h2>
+    <h2 id="s-title">PREPARA LA BATALLA</h2>
     <div class="grid">
-      <div class="group"><h3>Dificultad</h3><div class="opts" id="s-diff"></div></div>
+      <div class="group" id="s-diff-g"><h3>Dificultad</h3><div class="opts" id="s-diff"></div></div>
       <div class="group"><h3>Ejército</h3><div class="opts" id="s-army"></div></div>
       <div class="group"><h3>Héroe</h3><div class="opts" id="s-hero"></div></div>
       <div class="group"><h3>Mapa</h3><div class="opts" id="s-map"></div></div>
@@ -72,8 +98,8 @@
   <section id="pause" class="screen"><h2>PAUSA</h2>
     <button class="btn big gold" id="p-resume">CONTINUAR</button><button class="btn" id="p-restart">REINICIAR</button><button class="btn" id="p-settings">AJUSTES</button><button class="btn" id="p-menu">SALIR AL MENÚ</button></section>
 
-  <section id="end" class="screen"><h1 id="e-title">VICTORIA</h1><p id="e-sub"></p><div class="stats" id="e-stats"></div>
-    <div class="row"><button class="btn big gold" id="e-again">OTRA BATALLA</button><button class="btn" id="e-menu">MENÚ</button></div></section>
+  <section id="end" class="screen"><h1 id="e-title">VICTORIA</h1><p id="e-sub"></p><div class="stats" id="e-stats"></div><div id="e-reward"></div>
+    <div class="row"><button class="btn big gold hidden" id="e-next">SIGUIENTE NIVEL</button><button class="btn big" id="e-again">OTRA BATALLA</button><button class="btn" id="e-menu">MENÚ</button></div></section>
 
   <script type="module" src="js/main.js"></script>
 </body>
